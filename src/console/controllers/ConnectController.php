@@ -5,6 +5,7 @@ namespace porro\craft\console\controllers;
 use Craft;
 use craft\console\Controller;
 use InvalidArgumentException;
+use Porro\Core\Cron;
 use Porro\Core\SiteKey;
 use porro\craft\console\controllers\concerns\SetsUpCron;
 use porro\craft\Plugin;
@@ -46,7 +47,11 @@ class ConnectController extends Controller
             return ExitCode::USAGE;
         }
 
-        $result = Plugin::getInstance()->getReporter()->send($key, $url ?? Plugin::url(), withPackages: true, trigger: 'connect');
+        // Tell Porro whether cron already runs porro/report, so it can say
+        // "checking" rather than "add cron" until the first scheduled report.
+        $scheduled = Cron::isScheduled((string) Craft::getAlias('@root'), 'craft porro/report', $this->crontabIo());
+
+        $result = Plugin::getInstance()->getReporter()->send($key, $url ?? Plugin::url(), withPackages: true, trigger: 'connect', health: ['scheduler_in_crontab' => $scheduled]);
 
         if (! $result->ok) {
             $this->stderr("Porro didn’t accept the report: {$result->error}".PHP_EOL);

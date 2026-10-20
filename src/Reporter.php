@@ -28,17 +28,25 @@ class Reporter extends Component
     }
 
     /**
+     * @param  array<string, mixed>  $health  extra health facts for this report only
+     *
      * @throws InvalidArgumentException when the key isn't a Porro site key
      */
-    public function send(?string $key = null, ?string $url = null, bool $withPackages = false, string $trigger = 'manual'): Result
+    public function send(?string $key = null, ?string $url = null, bool $withPackages = false, string $trigger = 'manual', array $health = []): Result
     {
         $client = new Client(SiteKey::parse((string) ($key ?? Plugin::key())), $url ?? Plugin::url());
 
         $report = $this->build($withPackages)->trigger($trigger);
+        foreach ($health as $name => $value) {
+            $report->health($name, $value);
+        }
         $result = $client->send($report);
 
         if ($result->ok && $result->needLock && ! $report->includesPackages()) {
             $report = $this->build(true)->trigger($trigger);
+            foreach ($health as $name => $value) {
+                $report->health($name, $value);
+            }
             $result = $client->send($report);
         }
 

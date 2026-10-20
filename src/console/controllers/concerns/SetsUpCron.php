@@ -18,6 +18,17 @@ use porro\craft\FileCrontab;
 trait SetsUpCron
 {
     /**
+     * The crontab to read and write. PORRO_CRONTAB_FILE points it at a
+     * plain file so tests never touch the real one.
+     */
+    protected function crontabIo(): CrontabIo
+    {
+        $file = App::env('PORRO_CRONTAB_FILE');
+
+        return is_string($file) && $file !== '' ? new FileCrontab($file) : new CrontabIo;
+    }
+
+    /**
      * Reports go from cron. Add the line for the agency when the server
      * allows, otherwise show it to copy.
      */
@@ -26,15 +37,15 @@ trait SetsUpCron
         $command = 'craft porro/report --scheduled';
         $directory = (string) Craft::getAlias('@root');
         $line = Cron::line('*/15 * * * *', $directory, $command);
-        $file = App::env('PORRO_CRONTAB_FILE');
-        $io = is_string($file) && $file !== '' ? new FileCrontab($file) : new CrontabIo;
+        $io = $this->crontabIo();
 
-        $crontab = Cron::current($io);
-        if ($crontab !== null && Cron::hasEntry($crontab, $directory, 'craft porro/report')) {
-            $this->stdout('Cron is already set up on this server. Reports will go every 15 minutes.'.PHP_EOL);
+        if (Cron::isScheduled($directory, 'craft porro/report', $io) === true) {
+            $this->stdout('Found porro/report in this server’s cron. The first scheduled report is due by '.date('H:i', (intdiv((int) floor(time() / 60), 15) + 1) * 900).', then every 15 minutes.'.PHP_EOL);
 
             return;
         }
+
+        $crontab = Cron::current($io);
 
         $install = match (true) {
             $skip => false,

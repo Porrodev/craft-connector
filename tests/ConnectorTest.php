@@ -113,3 +113,14 @@ it('adds cron from connect when asked to', function () {
     expect($code)->toBe(0)
         ->and(file_get_contents($file))->toContain('*/15 * * * * cd '.escapeshellarg(craftPath()));
 });
+
+it('tells Porro whether cron already runs porro/report', function () {
+    $porro = porro();
+    $file = tempnam(sys_get_temp_dir(), 'crontab');
+    file_put_contents($file, '*/15 * * * * cd '.craftPath().' && php craft porro/report --scheduled'."\n");
+
+    [$code] = craft(['porro/connect', $porro['key'], '--url='.$porro['url']], ['PORRO_CRONTAB_FILE' => $file]);
+
+    expect($code)->toBe(0)
+        ->and(reports()[0]['health'])->toMatchArray(['scheduler_in_crontab' => true, 'report_interval' => 15]);
+});

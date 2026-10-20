@@ -29,6 +29,7 @@ class Collector
 
         $report->health('debug', (bool) $general->devMode);
         $report->health('scheduler_last_run', $this->cronLastRun());
+        $report->health('report_interval', 15);
         $report->health('pending_migrations', $this->pendingMigrations());
 
         foreach ($this->queue((bool) $general->runQueueAutomatically) as $key => $value) {
