@@ -39,8 +39,6 @@ jobs:
       - name: Install the plugin's own dependencies
         working-directory: plugin
         run: |
-          # Until porro/php-core is on Packagist, resolve it from GitHub.
-          composer config repositories.php-core vcs https://github.com/Porrodev/php-core
           composer update --prefer-dist --no-interaction --no-progress
 
       - name: Build a Craft ${{ matrix.craft }} site with the plugin
@@ -48,7 +46,6 @@ jobs:
           composer create-project "craftcms/craft:^${{ matrix.craft }}.0" app --no-interaction --no-scripts --no-progress
           cd app
           composer config audit.block-insecure false
-          composer config repositories.php-core vcs https://github.com/Porrodev/php-core
           composer config repositories.plugin '{"type": "path", "url": "../plugin", "options": {"symlink": true, "versions": {"porro/craft-connector": "0.1.0"}}}'
           composer config allow-plugins.craftcms/plugin-installer true
           composer require "craftcms/cms:^${{ matrix.craft }}.0" porro/craft-connector:0.1.0 --with-all-dependencies --no-interaction --no-progress
