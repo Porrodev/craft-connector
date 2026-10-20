@@ -1,0 +1,80 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { php: '8.2', craft: '4' }
+          - { php: '8.4', craft: '4' }
+          - { php: '8.2', craft: '5' }
+          - { php: '8.4', craft: '5' }
+          - { php: '8.5', craft: '5' }
+    name: PHP ${{ matrix.php }} · Craft ${{ matrix.craft }}
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: craft
+          POSTGRES_PASSWORD: craft
+          POSTGRES_DB: craft
+        ports: ['5432:5432']
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: plugin
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: sodium, pdo_pgsql, intl, gd, zip, bcmath, mbstring
+          coverage: none
+
+      - name: Install the plugin's own dependencies
+        working-directory: plugin
+        run: |
+          # Until porro/php-core is on Packagist, resolve it from GitHub.
+          composer config repositories.php-core vcs https://github.com/Porrodev/php-core
+          composer update --prefer-dist --no-interaction --no-progress
+
+      - name: Build a Craft ${{ matrix.craft }} site with the plugin
+        run: |
+          composer create-project craftcms/craft app --no-interaction --no-scripts --no-progress
+          cd app
+          composer config audit.block-insecure false
+          composer config repositories.php-core vcs https://github.com/Porrodev/php-core
+          composer config repositories.plugin '{"type": "path", "url": "../plugin", "options": {"symlink": true, "versions": {"porro/craft-connector": "0.1.0"}}}'
+          composer config allow-plugins.craftcms/plugin-installer true
+          composer require "craftcms/cms:^${{ matrix.craft }}.0" porro/craft-connector:0.1.0 --with-all-dependencies --no-interaction --no-progress
+          cat > .env <<'ENV'
+          CRAFT_ENVIRONMENT=production
+          CRAFT_DB_DRIVER=pgsql
+          CRAFT_DB_SERVER=127.0.0.1
+          CRAFT_DB_PORT=5432
+          CRAFT_DB_DATABASE=craft
+          CRAFT_DB_USER=craft
+          CRAFT_DB_PASSWORD=craft
+          CRAFT_DB_SCHEMA=public
+          PRIMARY_SITE_URL=https://craft.test
+          ENV
+          php craft setup/security-key
+          php craft install --interactive=0 --username=admin --email=admin@example.com --password=ci-only-password --site-name=CI --site-url=https://craft.test --language=en-GB
+          php craft plugin/install porro
+
+      - name: Test
+        working-directory: plugin
+        env:
+          CRAFT_PATH: ${{ github.workspace }}/app
+          CRAFT_MAJOR: ${{ matrix.craft }}
+        run: vendor/bin/pest
+
+      - name: Lint
+        if: matrix.php == '8.4' && matrix.craft == '5'
+        working-directory: plugin
+        run: vendor/bin/pint --test

@@ -1,0 +1,53 @@
+{
+    "name": "porro/craft-connector",
+    "description": "Read-only Porro connector for Craft CMS 4–5: Craft, plugin and package versions, queue health, migrations and dev mode.",
+    "type": "craft-plugin",
+    "license": "MIT",
+    "homepage": "https://porro.dev",
+    "keywords": ["porro", "craft", "craftcms", "monitoring", "security"],
+    "support": {
+        "issues": "https://github.com/Porrodev/craft-connector/issues",
+        "source": "https://github.com/Porrodev/craft-connector",
+        "docs": "https://github.com/Porrodev/craft-connector"
+    },
+    "require": {
+        "php": "^8.2",
+        "craftcms/cms": "^4.0|^5.0",
+        "porro/php-core": "^0.1.1"
+    },
+    "require-dev": {
+        "pestphp/pest": "^3.0|^4.0",
+        "laravel/pint": "^1.18"
+    },
+    "autoload": {
+        "psr-4": {
+            "porro\\craft\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "porro\\craft\\tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "handle": "porro",
+        "name": "Porro",
+        "developer": "Porro",
+        "developerUrl": "https://porro.dev",
+        "documentationUrl": "https://github.com/Porrodev/craft-connector",
+        "class": "porro\\craft\\Plugin"
+    },
+    "scripts": {
+        "test": "pest",
+        "lint": "pint"
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "craftcms/plugin-installer": true,
+            "yiisoft/yii2-composer": true,
+            "pestphp/pest-plugin": true
+        }
+    },
+    "minimum-stability": "stable"
+}
