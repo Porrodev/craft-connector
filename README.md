@@ -18,7 +18,7 @@ Reports then go every 15 minutes from cron. `porro/connect` offers to add the li
 */15 * * * * cd /path/to/site && php craft porro/report --scheduled > /dev/null 2>&1
 ```
 
-Use `--cron` to add it without asking (handy in provisioning scripts) or `--no-cron` to leave the crontab alone. Add `php craft porro/report` to your deploy script so Porro hears about deploys straight away.
+Use `--cron` to add it without asking (handy in provisioning scripts) or `--no-cron` to leave the crontab alone. Skipped it, or connected from another machine? Run `php craft porro/cron` on the server; it needs no key. Add `php craft porro/report` to your deploy script so Porro hears about deploys straight away.
 
 ## What leaves a site
 
@@ -37,6 +37,7 @@ Content, entries, assets, users, settings values or secrets. Run `php craft porr
 | Command | Does |
 |---|---|
 | `porro/connect <key>` | Saves the key, sends the first report and sets up cron (`--cron`, `--no-cron`, `--url`) |
+| `porro/cron` | Adds the cron line on its own, no key needed |
 | `porro/report` | Sends a report now (`--packages` forces the package list) |
 | `porro/status` | Shows what the next report contains (`--json` for the raw report) |
 

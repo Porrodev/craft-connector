@@ -89,3 +89,27 @@ it('sends nothing when reporting is turned off', function () {
         ->and($output)->toContain('turned off')
         ->and(reports())->toBe([]);
 });
+
+it('adds the cron line with porro/cron, without the site key, and only once', function () {
+    $file = tempnam(sys_get_temp_dir(), 'crontab');
+    file_put_contents($file, "0 3 * * * /usr/bin/backup\n");
+
+    [$code, $output] = craft(['porro/cron'], ['PORRO_CRONTAB_FILE' => $file]);
+    craft(['porro/cron'], ['PORRO_CRONTAB_FILE' => $file]);
+
+    expect($code)->toBe(0, $output)
+        ->and($output)->toContain('Added to this server’s crontab')
+        ->and(file_get_contents($file))->toStartWith("0 3 * * * /usr/bin/backup\n")
+        ->and(substr_count(file_get_contents($file), 'craft porro/report --scheduled'))->toBe(1)
+        ->and(reports())->toBe([]);
+});
+
+it('adds cron from connect when asked to', function () {
+    $porro = porro();
+    $file = tempnam(sys_get_temp_dir(), 'crontab');
+
+    [$code] = craft(['porro/connect', $porro['key'], '--url='.$porro['url'], '--cron'], ['PORRO_CRONTAB_FILE' => $file]);
+
+    expect($code)->toBe(0)
+        ->and(file_get_contents($file))->toContain('*/15 * * * * cd '.escapeshellarg(craftPath()));
+});
