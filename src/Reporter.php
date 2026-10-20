@@ -6,6 +6,7 @@ use Craft;
 use InvalidArgumentException;
 use Porro\Core\Client;
 use Porro\Core\LockFile;
+use Porro\Core\NpmLockFile;
 use Porro\Core\Report;
 use Porro\Core\Result;
 use Porro\Core\SiteKey;
@@ -15,6 +16,8 @@ class Reporter extends Component
 {
     private const SENT_LOCK_KEY = 'porro:lock-hash';
 
+    private const SENT_NPM_LOCK_KEY = 'porro:npm-lock-hash';
+
     public function build(bool $withPackages = false): Report
     {
         $report = new Report('porro/craft-connector', 'craft');
@@ -23,6 +26,10 @@ class Reporter extends Component
 
         $lock = LockFile::read(Craft::getAlias('@root'));
         $report->lock($lock, $withPackages || ($lock && Craft::$app->getCache()->get(self::SENT_LOCK_KEY) !== $lock->hash));
+
+        // The JavaScript the site builds with (Vite, Alpine…), same rules.
+        $npm = NpmLockFile::read(Craft::getAlias('@root'));
+        $report->npmLock($npm, $withPackages || ($npm && Craft::$app->getCache()->get(self::SENT_NPM_LOCK_KEY) !== $npm->hash));
 
         return $report;
     }
@@ -42,7 +49,7 @@ class Reporter extends Component
         }
         $result = $client->send($report);
 
-        if ($result->ok && $result->needLock && ! $report->includesPackages()) {
+        if ($result->ok && (($result->needLock && ! $report->includesPackages()) || ($result->needNpmLock && ! $report->includesNpmPackages()))) {
             $report = $this->build(true)->trigger($trigger);
             foreach ($health as $name => $value) {
                 $report->health($name, $value);
@@ -52,6 +59,10 @@ class Reporter extends Component
 
         if ($result->ok && $report->includesPackages()) {
             Craft::$app->getCache()->set(self::SENT_LOCK_KEY, $report->lockHash(), 0);
+        }
+
+        if ($result->ok && $report->includesNpmPackages()) {
+            Craft::$app->getCache()->set(self::SENT_NPM_LOCK_KEY, $report->npmLockHash(), 0);
         }
 
         return $result;
