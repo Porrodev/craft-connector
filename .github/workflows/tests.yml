@@ -45,7 +45,7 @@ jobs:
 
       - name: Build a Craft ${{ matrix.craft }} site with the plugin
         run: |
-          composer create-project craftcms/craft app --no-interaction --no-scripts --no-progress
+          composer create-project "craftcms/craft:^${{ matrix.craft }}.0" app --no-interaction --no-scripts --no-progress
           cd app
           composer config audit.block-insecure false
           composer config repositories.php-core vcs https://github.com/Porrodev/php-core
