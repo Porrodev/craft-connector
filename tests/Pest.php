@@ -110,7 +110,8 @@ function site(bool $fpm = true, array $env = []): string
     }
 
     $port = 19000 + random_int(0, 999);
-    $command = [PHP_BINARY, ...($fpm ? ['-d', 'auto_prepend_file='.__DIR__.'/support/fastcgi.php'] : []), '-S', "127.0.0.1:{$port}", '-t', craftPath().'/web', craftPath().'/web/index.php'];
+    $router = $fpm ? __DIR__.'/support/fastcgi.php' : craftPath().'/web/index.php';
+    $command = [PHP_BINARY, '-S', "127.0.0.1:{$port}", '-t', craftPath().'/web', $router];
     $server = proc_open($command, [1 => ['file', '/dev/null', 'w'], 2 => ['file', '/dev/null', 'w']], $pipes, craftPath(), [...getenv(), ...$env]);
     register_shutdown_function(fn () => proc_terminate($server));
 

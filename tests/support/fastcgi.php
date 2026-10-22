@@ -1,8 +1,10 @@
 <?php
 
 /*
- * Prepended to the test web server so it behaves like PHP-FPM, which can
- * finish the response before the script ends.
+ * Router for the test web server that makes it behave like PHP-FPM, which
+ * can finish the response before the script ends. (A router rather than
+ * auto_prepend_file: before PHP 8.4 the built-in server skips that for
+ * router scripts.)
  */
 
 if (! function_exists('fastcgi_finish_request')) {
@@ -13,3 +15,5 @@ if (! function_exists('fastcgi_finish_request')) {
         return true;
     }
 }
+
+require $_SERVER['DOCUMENT_ROOT'].'/index.php';

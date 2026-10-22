@@ -7,6 +7,8 @@ beforeEach(function () {
     $porro = porro();
     craft(['porro/connect', $porro['key'], '--url='.$porro['url'], '--no-cron']);
     cache('delete', SENT_KEY);
+    // Jobs a failed test left behind would send reports into the next one.
+    craft(['queue/release', 'all']);
     clearReports();
 });
 
