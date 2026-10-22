@@ -8,8 +8,9 @@ use craft\console\Application as ConsoleApplication;
 use craft\helpers\App;
 
 /**
- * Porro connector for Craft CMS. Read-only: it sends one signed report
- * about the site to Porro on a schedule and never accepts commands.
+ * Porro connector for Craft CMS. Read-only: it sends signed reports
+ * about the site to Porro (from cron, deploys and, as a backup, the
+ * control panel) and never accepts commands.
  *
  * @property-read Reporter $reporter
  */
@@ -32,6 +33,10 @@ class Plugin extends BasePlugin
 
         if (Craft::$app instanceof ConsoleApplication) {
             $this->controllerNamespace = 'porro\\craft\\console\\controllers';
+        }
+
+        if (self::enabled()) {
+            (new BackupReports)->register();
         }
     }
 

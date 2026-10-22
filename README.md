@@ -18,7 +18,28 @@ Reports then go every 15 minutes from cron. `porro/connect` offers to add the li
 */15 * * * * cd /path/to/site && php craft porro/report --scheduled > /dev/null 2>&1
 ```
 
-Use `--cron` to add it without asking (handy in provisioning scripts) or `--no-cron` to leave the crontab alone. Skipped it, or connected from another machine? Run `php craft porro/cron` on the server; it needs no key. Add `php craft porro/report` to your deploy script so Porro hears about deploys straight away.
+Use `--cron` to add it without asking (handy in provisioning scripts) or `--no-cron` to leave the crontab alone. Skipped it, or connected from another machine? Run `php craft porro/cron` on the server; it needs no key. Add `php craft porro/report --deploy` to your deploy script so Porro hears about deploys straight away.
+
+## Reports
+
+Each report says what sent it, so Porro can tell when cron has stopped:
+
+| Trigger | Sent by |
+|---|---|
+| `schedule` | Cron, every 15 minutes: the main way reports arrive |
+| `deploy` | `php craft porro/report --deploy` in your deploy script. Never fails the deploy |
+| `cp` | A backup for a missing cron line: a logged-in control panel visit, when no report has gone in the last 15 minutes |
+| `event` | Straight after a plugin is installed, updated or removed, or Craft is updated |
+| `connect`, `manual` | `porro/connect`, or running `porro/report` by hand |
+
+Control panel reports are a backup, not a replacement for cron: a quiet site with nobody logging in sends nothing, and Porro still flags a cron line that has stopped. They follow a few rules so the control panel never slows down or breaks because of Porro:
+
+- Never on front-end requests, and never for visitors who aren't logged in.
+- Only after the response has gone. On PHP-FPM the page is finished first; elsewhere the report goes through Craft's queue.
+- A 3-second timeout, no retries, and every error swallowed.
+- One 15-minute throttle shared with cron, deploys and events, kept in Craft's cache. Load-balanced servers sharing a cache send one report between them.
+
+Event reports skip the throttle. `PORRO_ENABLED=false` turns off every kind of report.
 
 ## What leaves a site
 
@@ -38,7 +59,7 @@ Content, entries, assets, users, settings values or secrets. Run `php craft porr
 |---|---|
 | `porro/connect <key>` | Saves the key, sends the first report and sets up cron (`--cron`, `--no-cron`, `--url`) |
 | `porro/cron` | Adds the cron line on its own, no key needed |
-| `porro/report` | Sends a report now (`--packages` forces the package list) |
+| `porro/report` | Sends a report now (`--packages` forces the package list, `--deploy` for deploy scripts) |
 | `porro/status` | Shows what the next report contains (`--json` for the raw report) |
 
 ## Config

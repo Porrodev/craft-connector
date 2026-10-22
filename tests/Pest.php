@@ -93,3 +93,101 @@ uses()->beforeEach(function () {
 
     clearReports();
 })->in(__DIR__);
+
+/**
+ * Serves the Craft install over HTTP. With $fpm it can finish responses
+ * early like PHP-FPM; without, backup reports go through the queue.
+ *
+ * @param  array<string, string>  $env
+ */
+function site(bool $fpm = true, array $env = []): string
+{
+    static $sites = [];
+    $id = md5(serialize([$fpm, $env]));
+
+    if (isset($sites[$id])) {
+        return $sites[$id];
+    }
+
+    $port = 19000 + random_int(0, 999);
+    $command = [PHP_BINARY, ...($fpm ? ['-d', 'auto_prepend_file='.__DIR__.'/support/fastcgi.php'] : []), '-S', "127.0.0.1:{$port}", '-t', craftPath().'/web', craftPath().'/web/index.php'];
+    $server = proc_open($command, [1 => ['file', '/dev/null', 'w'], 2 => ['file', '/dev/null', 'w']], $pipes, craftPath(), [...getenv(), ...$env]);
+    register_shutdown_function(fn () => proc_terminate($server));
+
+    set_error_handler(fn () => true);
+    for ($i = 0; $i < 50 && ! fsockopen('127.0.0.1', $port); $i++) {
+        usleep(100_000);
+    }
+    restore_error_handler();
+
+    return $sites[$id] = "http://127.0.0.1:{$port}";
+}
+
+/**
+ * A GET (or POST) with a cookie jar, so a login sticks.
+ *
+ * @param  array<string, string>|null  $post
+ * @return array{0: int, 1: string}
+ */
+function http(string $url, ?string $jar = null, ?array $post = null): array
+{
+    $curl = curl_init($url);
+    // + rather than spread: spreading renumbers the integer option keys.
+    curl_setopt_array($curl, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HTTPHEADER => ['Accept: application/json'],
+        CURLOPT_TIMEOUT => 30,
+        // Craft won't start a session without one.
+        CURLOPT_USERAGENT => 'porro-tests',
+    ] + ($jar ? [CURLOPT_COOKIEJAR => $jar, CURLOPT_COOKIEFILE => $jar] : [])
+      + ($post !== null ? [CURLOPT_POST => true, CURLOPT_POSTFIELDS => http_build_query($post)] : []));
+    $body = (string) curl_exec($curl);
+
+    return [(int) curl_getinfo($curl, CURLINFO_RESPONSE_CODE), $body];
+}
+
+/**
+ * Logs the CI admin in to the control panel and returns the cookie jar.
+ */
+function logIn(string $site): string
+{
+    $jar = (string) tempnam(sys_get_temp_dir(), 'jar');
+    [, $info] = http("{$site}/index.php?p=actions/users/session-info", $jar);
+    $info = json_decode($info, true);
+
+    [$status, $body] = http("{$site}/index.php?p=actions/users/login", $jar, [
+        $info['csrfTokenName'] => $info['csrfTokenValue'],
+        'loginName' => 'admin',
+        'password' => 'ci-only-password',
+    ]);
+
+    expect($status)->toBe(200, $body);
+
+    return $jar;
+}
+
+/**
+ * Reports that arrive within a few seconds; backup reports go after the
+ * response, so they can land just after the request returns.
+ *
+ * @return array<int, array<string, mixed>>
+ */
+function reportsAfterwards(int $expected): array
+{
+    for ($i = 0; $i < 40 && count(reports()) < $expected; $i++) {
+        usleep(100_000);
+    }
+
+    // Long enough for an unexpected extra report to show up.
+    usleep(500_000);
+
+    return reports();
+}
+
+function cache(string $action, string $key, ?string $value = null): void
+{
+    $command = implode(' ', array_map('escapeshellarg', array_filter([PHP_BINARY, __DIR__.'/support/cache.php', $action, $key, $value], fn ($arg) => $arg !== null)));
+    exec($command.' 2>&1', $output, $code);
+
+    expect($code)->toBe(0, implode("\n", $output));
+}
