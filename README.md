@@ -37,7 +37,7 @@ Results are cached for five minutes, and the public data behind them for between
 
 ## Connect Porro (optional)
 
-Porro watches every site you look after from outside: uptime from several regions, SSL and domain expiry, the server's OS and security updates, with alerts by email or Slack. Add the site in Porro and copy its site key, then:
+Porro watches every site you look after from outside: uptime from several regions, SSL and domain expiry, the server's OS and security updates, with alerts by email or Slack. It's a separate service with its own account; see [porro.dev](https://porro.dev) for plans. Nothing in this plugin needs it, and nothing is sent to Porro until you connect. Add the site in Porro and copy its site key, then:
 
 ```bash
 php craft porro/connect <site key>
