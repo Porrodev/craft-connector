@@ -34,6 +34,22 @@ it('reports Craft facts and never settings values or secrets', function () {
         ->and($output)->not->toContain(trim($securityKey[1] ?? 'no-key-found', '"'));
 });
 
+it('reports the database engine and version, but never where it is', function () {
+    [$code, $output] = craft(['porro/status', '--json']);
+    $database = json_decode($output, true)['database'];
+    $env = (string) file_get_contents(craftPath().'/.env');
+    preg_match('/^CRAFT_DB_DRIVER=(.+)$/m', $env, $driver);
+
+    expect($code)->toBe(0)
+        ->and(array_keys($database))->toBe(['engine', 'version', 'local', 'managed'])
+        // Craft says "mysql" for MariaDB; Porro wants to know which.
+        ->and($database['engine'])->toBeIn(($driver[1] ?? 'pgsql') === 'mysql' ? ['mysql', 'mariadb'] : ['pgsql'])
+        ->and($database['version'])->toMatch('/^\d+(\.\d+)+$/')
+        // CI and most local installs reach the database on 127.0.0.1 or a socket.
+        ->and($database['local'])->toBeTrue()
+        ->and($database['managed'])->toBeNull();
+});
+
 it('tells Porro when cron sent the report', function () {
     $porro = porro();
     craft(['porro/connect', $porro['key'], '--url='.$porro['url'], '--no-cron']);
