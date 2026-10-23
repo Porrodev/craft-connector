@@ -2,9 +2,9 @@
 
 ## Unreleased
 
-- Added a **Site health** control panel section and dashboard widget. Without a Porro account they check security advisories in `composer.lock`, PHP and Craft support dates, Craft and plugin updates, dev mode, migrations and the queue. Once connected they also check cron and show the site's open Porro findings, linking into Porro.
+- Added a **Porro Site Health** control panel section and dashboard widget. Without a Porro account they check security advisories in `composer.lock`, PHP and Craft support dates, Craft and plugin updates, dev mode, migrations and the queue. Once connected they also check cron and show the site's open Porro findings, linking into Porro.
 - Access follows Craft's **Access Porro** permission; admins always have it.
-- Added a plugin icon.
+- Added a plugin icon: the Porro mark.
 - Requires `porro/php-core` 0.2.
 
 ## 0.1.5 - 2026-10-22

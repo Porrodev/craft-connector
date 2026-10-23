@@ -6,7 +6,7 @@
         {{ health.issues(top, true) }}
     {% endif %}
     <p>
-        <a href="{{ cpUrl('porro') }}" class="go">{{ more ? '{count, plural, other{See # more}}'|t('porro', {count: more}) : 'Open Site health'|t('porro') }}</a>
+        <a href="{{ cpUrl('porro') }}" class="go">{{ more ? '{count, plural, other{See # more}}'|t('porro', {count: more}) : 'Open Porro Site Health'|t('porro') }}</a>
         {% if not connected %}<span class="light"> · {{ 'Connect Porro for uptime, SSL and domain checks'|t('porro') }}</span>{% endif %}
     </p>
 </div>

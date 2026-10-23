@@ -65,12 +65,12 @@ class Plugin extends BasePlugin
     }
 
     /**
-     * Control panel nav: "Site health", for users who can see it.
+     * Control panel nav: "Porro Site Health", with the Porro mark.
      */
     public function getCpNavItem(): ?array
     {
         $item = parent::getCpNavItem();
-        $item['label'] = Craft::t('porro', 'Site health');
+        $item['label'] = Craft::t('porro', 'Porro Site Health');
 
         return $item;
     }

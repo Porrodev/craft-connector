@@ -14,7 +14,7 @@ it('shows the site’s health without a Porro account, with the connect command'
     [$status, $html] = http("{$site}/index.php?p=admin/porro", $jar);
 
     expect($status)->toBe(200)
-        ->and($html)->toContain('Site health')
+        ->and($html)->toContain('Porro Site Health')
         ->toContain('Checked on this site')
         ->toContain('Watch this site from outside too')
         ->toContain('php craft porro/connect &lt;site key&gt;')
@@ -80,13 +80,13 @@ it('checks again on request', function () {
         ->and($status)->toBeIn([200, 302], $body);
 });
 
-it('adds Site health to the control panel nav', function () {
+it('adds Porro Site Health to the control panel nav', function () {
     $site = site(env: ['PORRO_ENABLED' => 'false']);
     $jar = logIn($site);
 
     [, $html] = http("{$site}/index.php?p=admin/dashboard", $jar);
 
-    expect($html)->toContain('Site health')->toContain('/porro');
+    expect($html)->toContain('Porro Site Health')->toContain('/porro');
 });
 
 it('shows the last result in the dashboard widget, never running the checks itself', function () {
@@ -108,5 +108,5 @@ it('shows the last result in the dashboard widget, never running the checks itse
     [, $after] = http("{$site}/index.php?p=admin/dashboard", $jar);
 
     expect($before)->toContain('Not checked yet')
-        ->and($after)->not->toContain('Not checked yet')->toContain('Open Site health');
+        ->and($after)->not->toContain('Not checked yet')->toContain('Open Porro Site Health');
 });

@@ -1,6 +1,6 @@
 {% macro summary(counts, checkedAgo, pending = false) %}
     {%- if pending -%}
-        {{ 'Not checked yet. Open Site health to run the checks.'|t('porro') }}
+        {{ 'Not checked yet. Open Porro Site Health to run the checks.'|t('porro') }}
     {%- else -%}
     {%- set attention = counts.critical + counts.warning -%}
     {%- if attention > 0 -%}

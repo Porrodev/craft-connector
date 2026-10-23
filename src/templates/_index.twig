@@ -1,7 +1,14 @@
 {% extends '_layouts/cp' %}
 {% import 'porro/_macros' as health %}
 
-{% set title = 'Site health'|t('porro') %}
+{% set title = 'Porro Site Health'|t('porro') %}
+
+{% block pageTitle %}
+    <h1 id="page-heading" class="screen-title porro-health-heading" title="{{ title }}">
+        {{ svg('@porro/craft/icon.svg')|attr({class: 'porro-health-mark', 'aria-hidden': 'true'}) }}
+        {{ title }}
+    </h1>
+{% endblock %}
 
 {% block actionButton %}
     <form method="post" accept-charset="UTF-8">
@@ -70,6 +77,8 @@
 {% endblock %}
 
 {% css %}
+    .porro-health-heading { display: flex; align-items: center; gap: 10px; }
+    .porro-health-mark { width: 28px; height: 28px; flex: none; }
     .porro-health > * + * { margin-top: 12px; }
     .porro-health h2 { margin-top: 24px; margin-bottom: 4px; }
     .porro-health-list { list-style: none; padding: 0; margin: 0; }

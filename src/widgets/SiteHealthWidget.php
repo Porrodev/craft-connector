@@ -17,7 +17,7 @@ class SiteHealthWidget extends Widget
 
     public static function displayName(): string
     {
-        return Craft::t('porro', 'Site health');
+        return Craft::t('porro', 'Porro Site Health');
     }
 
     public static function icon(): ?string
