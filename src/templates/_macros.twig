@@ -1,0 +1,31 @@
+{% macro summary(counts, checkedAgo) %}
+    {%- set attention = counts.critical + counts.warning -%}
+    {%- if attention > 0 -%}
+        {{ '{count, plural, =1{# thing needs attention} other{# things need attention}}'|t('porro', {count: attention}) }}
+    {%- elseif counts.notice > 0 -%}
+        {{ '{count, plural, =1{All clear, with # notice} other{All clear, with # notices}}'|t('porro', {count: counts.notice}) }}
+    {%- else -%}
+        {{ 'All clear'|t('porro') }}
+    {%- endif -%}
+    {%- if checkedAgo %} · {{ 'checked {ago}'|t('porro', {ago: checkedAgo}) }}{% endif -%}
+{% endmacro %}
+
+{% macro issues(issues, compact = false) %}
+    <ul class="porro-health-list">
+        {% for issue in issues %}
+            <li class="porro-health-item">
+                <span class="status {{ issue.style.status }}" role="img" aria-label="{{ issue.style.label|t('porro') }}" title="{{ issue.style.label|t('porro') }}"></span>
+                <div class="porro-health-body">
+                    <p class="porro-health-title">
+                        {% if issue.url %}<a href="{{ issue.url }}" target="_blank" rel="noopener">{{ issue.title }}</a>{% else %}{{ issue.title }}{% endif %}
+                        {%- if issue.scope == 'server' %} <span class="light">· {{ 'server'|t('porro') }}</span>{% endif %}
+                        {%- if issue.acknowledged %} <span class="light">· {{ 'acknowledged'|t('porro') }}</span>{% endif %}
+                    </p>
+                    {% if issue.detail %}<p class="light">{{ issue.detail }}</p>{% endif %}
+                    {% if issue.fix %}<p><code>{{ issue.fix }}</code></p>{% endif %}
+                </div>
+                {% if not compact %}<span class="porro-health-label light">{{ issue.style.label|t('porro') }}</span>{% endif %}
+            </li>
+        {% endfor %}
+    </ul>
+{% endmacro %}
