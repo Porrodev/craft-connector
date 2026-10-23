@@ -32,6 +32,12 @@ class SiteHealth extends Component
 
     private const TTL = 300;
 
+    public const SEVERITIES = [
+        Issue::CRITICAL => ['label' => 'Act now', 'status' => 'red'],
+        Issue::WARNING => ['label' => 'Needs attention', 'status' => 'orange'],
+        Issue::NOTICE => ['label' => 'Notice', 'status' => 'light'],
+    ];
+
     /**
      * @param  bool  $fresh  check again now, rather than use the last five minutes' result
      * @return array<string, mixed>
@@ -55,22 +61,29 @@ class SiteHealth extends Component
         return $health;
     }
 
-    public const SEVERITIES = [
-        Issue::CRITICAL => ['label' => 'Act now', 'status' => 'red'],
-        Issue::WARNING => ['label' => 'Needs attention', 'status' => 'orange'],
-        Issue::NOTICE => ['label' => 'Notice', 'status' => 'light'],
-    ];
+    /**
+     * The last result, without running any checks.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function cached(): ?array
+    {
+        $health = Craft::$app->getCache()->get(self::CACHE_KEY);
+
+        return is_array($health) ? $health : null;
+    }
 
     /**
      * Template variables for the page and widget.
      *
      * @param  int|null  $limit  how many issues to list, for the widget
+     * @param  bool  $cachedOnly  never run the checks, so the dashboard never waits on the network
      * @return array<string, mixed>
      */
-    public function view(?int $limit = null): array
+    public function view(?int $limit = null, bool $cachedOnly = false): array
     {
         try {
-            $health = $this->get();
+            $health = $cachedOnly ? $this->cached() : $this->get();
         } catch (Throwable $e) {
             Craft::error('Porro site health checks failed: '.$e->getMessage(), __METHOD__);
             $health = null;
@@ -82,7 +95,8 @@ class SiteHealth extends Component
         $checkedAt = isset($health['checked_at']) ? strtotime($health['checked_at']) : null;
 
         return [
-            'failed' => $health === null,
+            'failed' => $health === null && ! $cachedOnly,
+            'pending' => $health === null && $cachedOnly,
             'connected' => (bool) ($health['connected'] ?? false),
             'porro' => $porro,
             'porroOk' => (bool) ($porro['ok'] ?? false),

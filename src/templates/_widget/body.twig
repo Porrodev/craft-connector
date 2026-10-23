@@ -1,7 +1,7 @@
 {% import 'porro/_macros' as health %}
 
 <div class="porro-health">
-    <p class="light" role="status">{{ health.summary(counts, checkedAgo) }}</p>
+    <p class="light" role="status">{{ health.summary(counts, checkedAgo, pending) }}</p>
     {% if top is not empty %}
         {{ health.issues(top, true) }}
     {% endif %}

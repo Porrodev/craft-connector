@@ -80,11 +80,33 @@ it('checks again on request', function () {
         ->and($status)->toBeIn([200, 302], $body);
 });
 
-it('adds Site health to the control panel nav and offers a dashboard widget', function () {
+it('adds Site health to the control panel nav', function () {
     $site = site(env: ['PORRO_ENABLED' => 'false']);
     $jar = logIn($site);
 
     [, $html] = http("{$site}/index.php?p=admin/dashboard", $jar);
 
-    expect($html)->toContain('Site health');
+    expect($html)->toContain('Site health')->toContain('/porro');
+});
+
+it('shows the last result in the dashboard widget, never running the checks itself', function () {
+    $site = site(env: ['PORRO_ENABLED' => 'false']);
+    $jar = logIn($site);
+    [, $dashboard] = http("{$site}/index.php?p=admin/dashboard", $jar);
+    preg_match('/name="CRAFT_CSRF_TOKEN" value="([^"]+)"|"csrfTokenValue":"([^"]+)"/', $dashboard, $csrf);
+
+    [$created, $body] = http("{$site}/index.php?p=admin/actions/dashboard/create-widget", $jar, [
+        'CRAFT_CSRF_TOKEN' => ($csrf[1] ?? '') ?: ($csrf[2] ?? ''),
+        'type' => 'porro\\craft\\widgets\\SiteHealthWidget',
+    ]);
+    expect($created)->toBe(200, $body);
+
+    cache('delete', PANEL_KEY);
+    [, $before] = http("{$site}/index.php?p=admin/dashboard", $jar);
+
+    http("{$site}/index.php?p=admin/porro", $jar);
+    [, $after] = http("{$site}/index.php?p=admin/dashboard", $jar);
+
+    expect($before)->toContain('Not checked yet')
+        ->and($after)->not->toContain('Not checked yet')->toContain('Open Site health');
 });

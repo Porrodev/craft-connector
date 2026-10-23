@@ -9,6 +9,7 @@ use porro\craft\Plugin;
 
 /**
  * Dashboard: what needs attention, linking to the Site health page.
+ * Shows the last result only, so the dashboard never waits on checks.
  */
 class SiteHealthWidget extends Widget
 {
@@ -40,7 +41,7 @@ class SiteHealthWidget extends Widget
             return null;
         }
 
-        return Craft::$app->getView()->renderTemplate('porro/_widget/body', Plugin::getInstance()->getSiteHealth()->view(max(1, $this->limit)));
+        return Craft::$app->getView()->renderTemplate('porro/_widget/body', Plugin::getInstance()->getSiteHealth()->view(max(1, $this->limit), cachedOnly: true));
     }
 
     public function getSettingsHtml(): ?string
