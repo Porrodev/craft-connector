@@ -63,6 +63,19 @@
         }
     },
     "minimum-stability": "stable",
+    "repositories": [
+        {
+            "name": "core",
+            "type": "path",
+            "url": "../../../../porro-php-core/.claude/worktrees/site-health",
+            "options": {
+                "symlink": true,
+                "versions": {
+                    "porro/php-core": "0.2.0"
+                }
+            }
+        }
+    ],
     "authors": [
         {
             "name": "Porro",

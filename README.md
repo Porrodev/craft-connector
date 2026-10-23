@@ -4,7 +4,7 @@ Site health for Craft CMS 4 and 5, inside the control panel. It checks the site 
 
 It's free and works on its own. If you use [Porro](https://porro.dev) to look after your sites, connecting it adds what can only be seen from outside: uptime, SSL certificates, domain expiry and the server's operating system.
 
-![Site health in the Craft control panel](docs/craft-site-health.png)
+![Site health in the Craft control panel on a site that isn't connected to Porro: a migration not run, a stuck queue and two failed jobs, with the commands that fix them](docs/images/craft-site-health.png)
 
 ## Install
 
@@ -15,7 +15,9 @@ composer require porro/craft-connector
 php craft plugin/install porro
 ```
 
-Then open **Site health** in the control panel nav. There's a **Site health** dashboard widget too (New widget → Site health).
+Then open **Site health** in the control panel nav. There's a **Site health** dashboard widget too (New widget → Site health). It shows the last result rather than running the checks, so the dashboard never waits on them.
+
+<img src="docs/images/craft-widget.png" alt="The Site health dashboard widget" width="320">
 
 ### Who can see it
 
@@ -43,7 +45,9 @@ Porro watches every site you look after from outside: uptime from several region
 php craft porro/connect <site key>
 ```
 
-The Site health page then shows the site's open findings in Porro alongside the checks above, each linking to Porro. Connecting also sends Porro one signed report about the site every 15 minutes. It's read-only: it never changes the site and never accepts commands, and Porro never connects in.
+The Site health page then shows the site's open findings in Porro alongside the checks above, each linking to Porro.
+
+![Site health connected to Porro: an end-of-life server, an expiring certificate and domain, and a slow region, above the checks run on the site](docs/images/craft-site-health-connected.png) Connecting also sends Porro one signed report about the site every 15 minutes. It's read-only: it never changes the site and never accepts commands, and Porro never connects in.
 
 `porro/connect` saves `PORRO_KEY` to `.env` and sends the first report. Reports then go every 15 minutes from cron. `porro/connect` offers to add the line to the server's crontab for you, with the right PHP binary and project folder, and never adds it twice. If it can't, it prints the line to paste into Forge, Ploi or `crontab -e`:
 
@@ -94,6 +98,10 @@ Content, entries, assets, users, settings values or secrets. Run `php craft porr
 | `porro/cron` | Adds the cron line on its own, no key needed |
 | `porro/report` | Sends a report now (`--packages` forces the package list, `--deploy` for deploy scripts) |
 | `porro/status` | Shows what the next report contains (`--json` for the raw report) |
+
+## Demo
+
+[Dog-ear Books](https://github.com/Porrodev/craft-demo) is a demo site with the plugin set up and things for it to find, a stand-in Porro for the connected view, and the end-to-end checks and screenshot script behind these images.
 
 ## External requests
 
