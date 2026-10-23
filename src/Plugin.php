@@ -5,24 +5,40 @@ namespace porro\craft;
 use Craft;
 use craft\base\Plugin as BasePlugin;
 use craft\console\Application as ConsoleApplication;
+use craft\events\RegisterComponentTypesEvent;
+use craft\events\RegisterUrlRulesEvent;
 use craft\helpers\App;
+use craft\services\Dashboard;
+use craft\web\UrlManager;
+use porro\craft\services\SiteHealth;
+use porro\craft\widgets\SiteHealthWidget;
+use yii\base\Event;
 
 /**
- * Porro connector for Craft CMS. Read-only: it sends signed reports
- * about the site to Porro (from cron, deploys and, as a backup, the
- * control panel) and never accepts commands.
+ * Porro for Craft CMS. A Site health page and dashboard widget that
+ * check the site without a Porro account; once connected, it also sends
+ * signed reports about the site to Porro (from cron, deploys and, as a
+ * backup, the control panel) and never accepts commands.
  *
  * @property-read Reporter $reporter
+ * @property-read SiteHealth $siteHealth
  */
 class Plugin extends BasePlugin
 {
     public const DEFAULT_URL = 'https://app.porro.dev';
+
+    // Craft's own "Access Porro" permission for the plugin's section.
+    // Admins always have it.
+    public const PERMISSION = 'accessPlugin-porro';
+
+    public bool $hasCpSection = true;
 
     public static function config(): array
     {
         return [
             'components' => [
                 'reporter' => Reporter::class,
+                'siteHealth' => SiteHealth::class,
             ],
         ];
     }
@@ -38,6 +54,31 @@ class Plugin extends BasePlugin
         if (self::enabled()) {
             (new BackupReports)->register();
         }
+
+        Event::on(UrlManager::class, UrlManager::EVENT_REGISTER_CP_URL_RULES, function (RegisterUrlRulesEvent $event) {
+            $event->rules['porro'] = 'porro/site-health/index';
+        });
+
+        Event::on(Dashboard::class, Dashboard::EVENT_REGISTER_WIDGET_TYPES, function (RegisterComponentTypesEvent $event) {
+            $event->types[] = SiteHealthWidget::class;
+        });
+    }
+
+    /**
+     * Control panel nav: "Porro Site Health", with the Porro mark.
+     */
+    public function getCpNavItem(): ?array
+    {
+        $item = parent::getCpNavItem();
+        $item['label'] = Craft::t('porro', 'Porro Site Health');
+
+        return $item;
+    }
+
+    public function getSiteHealth(): SiteHealth
+    {
+        /** @var SiteHealth */
+        return $this->get('siteHealth');
     }
 
     public function getReporter(): Reporter

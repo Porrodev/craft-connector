@@ -1,0 +1,23 @@
+{% import 'porro/_macros' as health %}
+
+<div class="porro-health">
+    <p class="light" role="status">{{ health.summary(counts, checkedAgo, pending) }}</p>
+    {% if top is not empty %}
+        {{ health.issues(top, true) }}
+    {% endif %}
+    <p>
+        <a href="{{ cpUrl('porro') }}" class="go">{{ more ? '{count, plural, other{See # more}}'|t('porro', {count: more}) : 'Open Porro Site Health'|t('porro') }}</a>
+        {% if not connected %}<span class="light"> · {{ 'Connect Porro for uptime, SSL and domain checks'|t('porro') }}</span>{% endif %}
+    </p>
+</div>
+
+{% css %}
+    .porro-health > * + * { margin-top: 10px; }
+    .porro-health-list { list-style: none; padding: 0; margin: 0; }
+    .porro-health-item { display: flex; gap: 10px; align-items: flex-start; padding: 8px 0; }
+    .porro-health-item + .porro-health-item { border-top: 1px solid var(--hairline-color, #e3e5e8); }
+    .porro-health-item .status { flex: none; margin-top: 5px; }
+    .porro-health-body { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+    .porro-health-title { font-weight: 600; margin: 0; }
+    .porro-health-body p { margin: 2px 0 0; }
+{% endcss %}
