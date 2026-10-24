@@ -4,7 +4,7 @@ use craft\console\Application;
 
 /*
  * Reads or changes one value in the Craft install's cache, without
- * running a request: `php cache.php set|delete <key> [value]`.
+ * running a request: `php cache.php set|set-json|delete <key> [value]`.
  */
 
 [, $action, $key] = $argv;
@@ -17,5 +17,6 @@ $app = require CRAFT_VENDOR_PATH.'/craftcms/cms/bootstrap/console.php';
 
 match ($action) {
     'set' => $app->getCache()->set($key, $argv[3], 0),
+    'set-json' => $app->getCache()->set($key, json_decode($argv[3], true), 0),
     'delete' => $app->getCache()->delete($key),
 };
