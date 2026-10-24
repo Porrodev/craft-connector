@@ -6,7 +6,6 @@ use Craft;
 use craft\db\Query;
 use craft\db\Table;
 use craft\queue\Queue;
-use Porro\Core\Database;
 use Porro\Core\Report;
 use Throwable;
 
@@ -51,28 +50,10 @@ class Collector
         try {
             $db = Craft::$app->getDb();
 
-            // Craft says "mysql" for MariaDB too; describe() tells them apart by the version.
-            return Database::describe($db->getDriverName(), (string) $db->getServerVersion(), $this->databaseHost((string) $db->dsn));
+            return DatabaseDsn::describe($db->getDriverName(), (string) $db->getServerVersion(), (string) $db->dsn);
         } catch (Throwable) {
             return null;
         }
-    }
-
-    /**
-     * The socket or host from a DSN such as "mysql:host=db;port=3306;dbname=craft"
-     * or "pgsql:host=/var/run/postgresql;dbname=craft". '' when it names
-     * neither, which means the driver's local default.
-     */
-    private function databaseHost(string $dsn): string
-    {
-        $params = [];
-
-        foreach (explode(';', substr($dsn, (int) strpos($dsn, ':') + 1)) as $pair) {
-            [$key, $value] = array_pad(explode('=', $pair, 2), 2, '');
-            $params[strtolower(trim($key))] = trim($value);
-        }
-
-        return ($params['unix_socket'] ?? '') !== '' ? $params['unix_socket'] : ($params['host'] ?? '');
     }
 
     /**

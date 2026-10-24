@@ -1,5 +1,10 @@
 # Release Notes for Porro Site Health
 
+## Unreleased (0.2.1)
+
+- Reports describe the site's database (engine, version, whether it's on the same server, managed provider), so Porro can flag an end-of-life MySQL, MariaDB or PostgreSQL. Only the socket or host is read from the DSN, and neither it, the database name nor any credentials leave the site.
+- Requires `porro/php-core` 0.2.1.
+
 ## 0.2.0 - 2026-10-23
 
 - Added a **Porro Site Health** control panel section and dashboard widget. Without a Porro account they check security advisories in `composer.lock`, PHP and Craft support dates, Craft and plugin updates, dev mode, migrations and the queue. Once connected they also check cron and show the site's open Porro findings, linking into Porro.

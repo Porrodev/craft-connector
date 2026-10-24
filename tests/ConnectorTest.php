@@ -38,16 +38,27 @@ it('reports the database engine and version, but never where it is', function ()
     [$code, $output] = craft(['porro/status', '--json']);
     $database = json_decode($output, true)['database'];
     $env = (string) file_get_contents(craftPath().'/.env');
-    preg_match('/^CRAFT_DB_DRIVER=(.+)$/m', $env, $driver);
+    $setting = fn (string $name) => preg_match('/^CRAFT_DB_'.$name.'=(.*)$/m', $env, $m) ? trim($m[1], " \t\"'") : null;
+    $server = strtolower((string) $setting('SERVER'));
 
     expect($code)->toBe(0)
         ->and(array_keys($database))->toBe(['engine', 'version', 'local', 'managed'])
         // Craft says "mysql" for MariaDB; Porro wants to know which.
-        ->and($database['engine'])->toBeIn(($driver[1] ?? 'pgsql') === 'mysql' ? ['mysql', 'mariadb'] : ['pgsql'])
+        ->and($database['engine'])->toBeIn(($setting('DRIVER') ?? 'pgsql') === 'mysql' ? ['mysql', 'mariadb'] : ['pgsql'])
         ->and($database['version'])->toMatch('/^\d+(\.\d+)+$/')
-        // CI and most local installs reach the database on 127.0.0.1 or a socket.
-        ->and($database['local'])->toBeTrue()
-        ->and($database['managed'])->toBeNull();
+        ->and($database['local'])->toBeBool();
+
+    // Only assert where the database is when .env says so plainly: CI may
+    // reach it on a service host name rather than 127.0.0.1.
+    if (in_array($server, ['', 'localhost', '127.0.0.1', '::1'], true) || str_starts_with($server, '/')) {
+        expect($database['local'])->toBeTrue()->and($database['managed'])->toBeNull();
+    }
+
+    $block = (string) json_encode($database);
+
+    foreach (array_filter([$server, $setting('DATABASE'), $setting('USER'), $setting('PASSWORD')], fn ($value) => strlen((string) $value) > 3) as $secret) {
+        expect($block)->not->toContain($secret);
+    }
 });
 
 it('tells Porro when cron sent the report', function () {
