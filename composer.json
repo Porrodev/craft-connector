@@ -1,19 +1,30 @@
 {
     "name": "porro/craft-connector",
-    "description": "Read-only Porro connector for Craft CMS 4–5: Craft, plugin and package versions, queue health, migrations and dev mode.",
+    "description": "Site health for Craft CMS 4–5: security advisories, end-of-life PHP and Craft, updates, dev mode, migrations and the queue, in a control panel section and dashboard widget. Free; connect Porro to add uptime, SSL, domain and server checks.",
     "type": "craft-plugin",
     "license": "MIT",
     "homepage": "https://porro.dev",
-    "keywords": ["porro", "craft", "craftcms", "monitoring", "security"],
+    "keywords": [
+        "craft",
+        "craftcms",
+        "craft-plugin",
+        "site health",
+        "security",
+        "advisories",
+        "end of life",
+        "updates",
+        "monitoring",
+        "porro"
+    ],
     "support": {
         "issues": "https://github.com/Porrodev/craft-connector/issues",
         "source": "https://github.com/Porrodev/craft-connector",
-        "docs": "https://github.com/Porrodev/craft-connector"
+        "docs": "https://github.com/Porrodev/craft-connector#readme"
     },
     "require": {
         "php": "^8.2",
         "craftcms/cms": "^4.0|^5.0",
-        "porro/php-core": "^0.1.7"
+        "porro/php-core": "^0.2.1"
     },
     "require-dev": {
         "pestphp/pest": "^3.0|^4.0",
@@ -31,11 +42,13 @@
     },
     "extra": {
         "handle": "porro",
-        "name": "Porro",
+        "name": "Porro Site Health",
         "developer": "Porro",
         "developerUrl": "https://porro.dev",
         "documentationUrl": "https://github.com/Porrodev/craft-connector",
-        "class": "porro\\craft\\Plugin"
+        "class": "porro\\craft\\Plugin",
+        "description": "Security advisories, end-of-life versions, updates and site health, checked inside your site. Connect Porro for uptime, SSL, domain and server checks too.",
+        "changelogUrl": "https://raw.githubusercontent.com/Porrodev/craft-connector/main/CHANGELOG.md"
     },
     "scripts": {
         "test": "pest",
@@ -49,5 +62,11 @@
             "pestphp/pest-plugin": true
         }
     },
-    "minimum-stability": "stable"
+    "minimum-stability": "stable",
+    "authors": [
+        {
+            "name": "Porro",
+            "homepage": "https://porro.dev"
+        }
+    ]
 }

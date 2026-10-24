@@ -1,0 +1,95 @@
+{% extends '_layouts/cp' %}
+{% import 'porro/_macros' as health %}
+
+{% set title = 'Porro Site Health'|t('porro') %}
+
+{% block pageTitle %}
+    <h1 id="page-heading" class="screen-title porro-health-heading" title="{{ title }}">
+        {{ svg('@porro/craft/icon.svg')|attr({class: 'porro-health-mark', 'aria-hidden': 'true'}) }}
+        {{ title }}
+    </h1>
+{% endblock %}
+
+{% block actionButton %}
+    <form method="post" accept-charset="UTF-8">
+        {{ csrfInput() }}
+        {{ actionInput('porro/site-health/refresh') }}
+        <button type="submit" class="btn">{{ 'Check again'|t('porro') }}</button>
+    </form>
+{% endblock %}
+
+{% block content %}
+    <div class="porro-health">
+        <p class="light" role="status">{{ health.summary(counts, checkedAgo) }}</p>
+
+        {% if failed %}
+            <p>{{ 'The checks couldn’t run just now. Try again in a minute; the error is in the Craft log.'|t('porro') }}</p>
+        {% endif %}
+
+        {% if connected %}
+            <h2>{{ 'From Porro'|t('porro') }}</h2>
+            <p class="light">{{ 'Uptime, SSL, the domain and the server, checked from outside every few minutes.'|t('porro') }}</p>
+            {% if not porroOk %}
+                <p>{{ porro.error ?? 'Couldn’t reach Porro just now.'|t('porro') }} {{ 'Showing the checks run on this site instead.'|t('porro') }}</p>
+            {% elseif found is empty %}
+                <p>{{ 'Porro has nothing open for this site.'|t('porro') }}</p>
+            {% else %}
+                {{ health.issues(found) }}
+            {% endif %}
+            {% if porroUrl %}
+                <p><a href="{{ porroUrl }}" target="_blank" rel="noopener" class="go">{{ 'Open this site in Porro'|t('porro') }}</a></p>
+            {% endif %}
+            <hr>
+        {% endif %}
+
+        <h2>{{ 'Checked on this site'|t('porro') }}</h2>
+        {% if local is empty %}
+            <p>{{ 'Nothing needs attention.'|t('porro') }}</p>
+        {% else %}
+            {{ health.issues(local) }}
+        {% endif %}
+
+        <div class="porro-health-notes light smalltext">
+            {% if checked is not empty %}
+                <p>{{ 'Checked'|t('porro') }}: {{ checked|join(' · ') }}.</p>
+            {% endif %}
+            {% for note in unavailable %}
+                <p>{{ note }}.</p>
+            {% endfor %}
+            <p>{{ 'Only package names leave the site, to Packagist’s advisories API. Support dates come from endoflife.date.'|t('porro') }}</p>
+        </div>
+
+        {% if not connected %}
+            <hr>
+            <h2>{{ 'Watch this site from outside too'|t('porro') }}</h2>
+            <p>{{ 'These checks run inside the site. Porro watches it from outside as well, alongside every other site you look after:'|t('porro') }}</p>
+            <ul class="bullets">
+                <li>{{ 'Uptime from several regions, and alerts by email or Slack when it goes down'|t('porro') }}</li>
+                <li>{{ 'SSL certificate and domain expiry, well before they lapse'|t('porro') }}</li>
+                <li>{{ 'The server’s operating system and security updates'|t('porro') }}</li>
+                <li>{{ 'Advisories, updates and support dates across all your sites in one place'|t('porro') }}</li>
+            </ul>
+            <p>{{ 'Add the site in Porro, then connect it with its site key:'|t('porro') }}</p>
+            <pre class="porro-health-code"><code>{{ commands.connect }}</code></pre>
+            <p><a href="https://porro.dev" target="_blank" rel="noopener" class="go">{{ 'Find out more at porro.dev'|t('porro') }}</a></p>
+        {% endif %}
+    </div>
+{% endblock %}
+
+{% css %}
+    .porro-health-heading { display: flex; align-items: center; gap: 10px; }
+    .porro-health-mark { width: 28px; height: 28px; flex: none; }
+    .porro-health > * + * { margin-top: 12px; }
+    .porro-health h2 { margin-top: 24px; margin-bottom: 4px; }
+    .porro-health-list { list-style: none; padding: 0; margin: 0; }
+    .porro-health-item { display: flex; gap: 10px; align-items: flex-start; padding: 10px 0; }
+    .porro-health-item + .porro-health-item { border-top: 1px solid var(--hairline-color, #e3e5e8); }
+    .porro-health-item .status { flex: none; margin-top: 5px; }
+    .porro-health-body { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+    .porro-health-title { font-weight: 600; margin: 0; }
+    .porro-health-body p { margin: 2px 0 0; }
+    .porro-health-label { flex: none; font-size: 11px; text-transform: uppercase; letter-spacing: .03em; }
+    .porro-health-code { padding: 8px 12px; border-radius: 4px; background: var(--gray-050, #f3f7fc); overflow-x: auto; white-space: pre-wrap; word-break: break-all; }
+    .porro-health-notes p { margin: 2px 0; }
+    @media (max-width: 640px) { .porro-health-label { display: none; } }
+{% endcss %}
