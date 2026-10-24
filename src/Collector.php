@@ -35,6 +35,25 @@ class Collector
         foreach ($this->queue((bool) $general->runQueueAutomatically) as $key => $value) {
             $report->health($key, $value);
         }
+
+        $report->database($this->database());
+    }
+
+    /**
+     * The database's engine and version, and whether it's on this server
+     * or a managed service. The host itself never leaves the site.
+     *
+     * @return array{engine: string, version: string|null, local: bool|null, managed: string|null}|null
+     */
+    private function database(): ?array
+    {
+        try {
+            $db = Craft::$app->getDb();
+
+            return DatabaseDsn::describe($db->getDriverName(), (string) $db->getServerVersion(), (string) $db->dsn);
+        } catch (Throwable) {
+            return null;
+        }
     }
 
     /**

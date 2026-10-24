@@ -85,6 +85,7 @@ Event reports skip the throttle. `PORRO_ENABLED=false` turns off every kind of r
 - Whether dev mode is on, as true or false
 - Pending migrations, and Craft's queue: whether it runs automatically, jobs waiting, failed jobs, and how long the oldest job has waited
 - When cron last ran
+- The database engine and version (e.g. MySQL 8.0.36, MariaDB 10.11.6, PostgreSQL 16.4), whether it's on the same server, and the provider if it's a known managed database. Never its host, name, user or password
 
 ## What never does
 
