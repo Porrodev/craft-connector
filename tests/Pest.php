@@ -94,7 +94,8 @@ uses()->beforeEach(function () {
     }
 
     clearReports();
-})->in(__DIR__);
+    // Tests in Unit/ need no Craft install.
+})->in(...glob(__DIR__.'/*Test.php'));
 
 /**
  * Serves the Craft install over HTTP. With $fpm it can finish responses

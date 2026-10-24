@@ -6,6 +6,7 @@
 - **Check again** now fetches everything again: PHP and Craft support dates, security advisories, Craft's own update check and Porro's findings. Before, it only re-ran the checks on cached data.
 - The HTTP client stops reading a response once it's over php-core's size limit.
 - Requires `porro/php-core` 0.2.1: requests to Porro are signed for their method and path, and local issues are only hidden when Porro has raised the same thing.
+- Reports describe the site's database (engine, version, whether it's on the same server, managed provider), so Porro can flag an end-of-life MySQL, MariaDB or PostgreSQL. Only the socket or host is read from the DSN, and neither it, the database name nor any credentials leave the site.
 
 ## 0.2.0 - 2026-10-23
 
