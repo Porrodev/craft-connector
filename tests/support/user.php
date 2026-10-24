@@ -19,6 +19,8 @@ require $root.'/bootstrap.php';
 /** @var Application $app */
 $app = require CRAFT_VENDOR_PATH.'/craftcms/cms/bootstrap/console.php';
 
+// The install runs as production, where project config is read-only.
+$app->getProjectConfig()->readOnly = false;
 $app->setEdition(class_exists(CmsEdition::class) ? CmsEdition::Pro : Craft::Pro);
 // A request saves project config changes when it ends; this isn't one.
 $app->getProjectConfig()->saveModifiedConfigData();
