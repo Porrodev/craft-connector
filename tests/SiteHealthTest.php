@@ -26,7 +26,7 @@ it('shows the site’s health without a Porro account, with the connect command'
 it('adds the site’s Porro findings once connected', function () {
     $porro = porro();
     craft(['porro/connect', $porro['key'], '--url='.$porro['url'], '--no-cron']);
-    cache('delete', 'porro:health:porro:01JABCDEFGHJKMNPQRSTVWXYZ0');
+    cache('delete', findingsKey($porro['url'], $porro['key']));
     $site = site();
     $jar = logIn($site);
 
@@ -47,7 +47,7 @@ it('says when Porro can’t be reached, and shows the local checks', function ()
     // environment, so change it there for this test.
     $env = (string) file_get_contents(craftPath().'/.env');
     file_put_contents(craftPath().'/.env', preg_replace('/^PORRO_URL=.*$/m', 'PORRO_URL=http://127.0.0.1:9', $env));
-    cache('delete', 'porro:health:porro:01JABCDEFGHJKMNPQRSTVWXYZ0');
+    cache('delete', findingsKey('http://127.0.0.1:9', $porro['key']));
 
     try {
         $site = site();
@@ -78,6 +78,48 @@ it('checks again on request', function () {
 
     expect($csrf)->not->toBeEmpty()
         ->and($status)->toBeIn([200, 302], $body);
+});
+
+it('asks Porro again when checking again', function () {
+    $porro = porro();
+    craft(['porro/connect', $porro['key'], '--url='.$porro['url'], '--no-cron']);
+    $site = site();
+    $jar = logIn($site);
+    // A cached answer from Porro that the stand-in would never give.
+    cache('set-json', findingsKey($porro['url'], $porro['key']), json_encode(['value' => ['ok' => true, 'site' => ['url' => null], 'findings' => [['kind' => 'down', 'rank' => 1, 'title' => 'Stale finding']]]]));
+
+    [, $before] = http("{$site}/index.php?p=admin/porro", $jar);
+    http("{$site}/index.php?p=admin/actions/porro/site-health/refresh", $jar, ['CRAFT_CSRF_TOKEN' => csrf($before)]);
+    [, $after] = http("{$site}/index.php?p=admin/porro", $jar);
+
+    expect($before)->toContain('Stale finding')
+        ->and($after)->not->toContain('Stale finding')->toContain('SSL certificate expires in 9 days');
+});
+
+it('keeps users without the Porro permission out of the page, check again and the widget', function () {
+    cpUser('editor', ['accessCp']);
+    $site = site(env: ['PORRO_ENABLED' => 'false']);
+
+    // The admin runs the checks, so there's a result to leak.
+    http("{$site}/index.php?p=admin/porro", logIn($site));
+
+    $jar = logIn($site, 'editor');
+    [, $dashboard] = http("{$site}/index.php?p=admin/dashboard", $jar);
+    [$page, $html] = http("{$site}/index.php?p=admin/porro", $jar);
+    [$refresh] = http("{$site}/index.php?p=admin/actions/porro/site-health/refresh", $jar, ['CRAFT_CSRF_TOKEN' => csrf($dashboard)]);
+    // Even if Craft lets the widget be added, it shows nothing.
+    http("{$site}/index.php?p=admin/actions/dashboard/create-widget", $jar, [
+        'CRAFT_CSRF_TOKEN' => csrf($dashboard),
+        'type' => 'porro\\craft\\widgets\\SiteHealthWidget',
+    ]);
+    [, $after] = http("{$site}/index.php?p=admin/dashboard", $jar);
+
+    expect(csrf($dashboard))->not->toBe('')
+        ->and($page)->toBe(403, $html)
+        ->and($html)->not->toContain('Checked on this site')
+        ->and($refresh)->toBe(403)
+        ->and($dashboard)->not->toContain('Porro Site Health')
+        ->and($after)->not->toContain('Open Porro Site Health')->not->toContain('Not checked yet');
 });
 
 it('adds Porro Site Health to the control panel nav', function () {

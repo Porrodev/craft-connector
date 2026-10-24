@@ -1,7 +1,7 @@
 <?php
 
 /*
- * A stand-in for Porro, run with `php -S`. It checks each report's
+ * A stand-in for Porro, run with `php -S`. It checks each request's
  * signature against the public key in PORRO_PUBLIC_KEY (hex), saves the
  * body to PORRO_CAPTURE_DIR and replies like Porro does. Signed reads of
  * /api/v1/findings get two canned findings. If the file
@@ -22,7 +22,9 @@ if (! in_array($route, ['POST /api/v1/reports', 'GET /api/v1/findings'], true)) 
     exit('{"ok":false,"error":"Not found."}');
 }
 
-$message = ($_SERVER['HTTP_X_PORRO_TIMESTAMP'] ?? '')."\n".($_SERVER['HTTP_X_PORRO_NONCE'] ?? '')."\n".hash('sha256', $body);
+// Signed for the method and path, as Porro checks it.
+$message = "connector-v1\n".$_SERVER['REQUEST_METHOD']."\n".$_SERVER['REQUEST_URI']."\n"
+    .($_SERVER['HTTP_X_PORRO_TIMESTAMP'] ?? '')."\n".($_SERVER['HTTP_X_PORRO_NONCE'] ?? '')."\n".hash('sha256', $body);
 $signature = base64_decode($_SERVER['HTTP_X_PORRO_SIGNATURE'] ?? '', true);
 
 if ($signature === false || strlen($signature) !== SODIUM_CRYPTO_SIGN_BYTES || ! sodium_crypto_sign_verify_detached($signature, $message, $public)) {

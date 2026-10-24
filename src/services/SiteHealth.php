@@ -7,7 +7,10 @@ use Craft;
 use craft\helpers\App;
 use craft\helpers\UrlHelper;
 use Porro\Core\Cron;
+use Porro\Core\Health\Advisories;
+use Porro\Core\Health\EndOfLife;
 use Porro\Core\Health\Issue;
+use Porro\Core\Health\PorroFindings;
 use Porro\Core\Health\ReportChecks;
 use Porro\Core\Health\SiteHealth as Checks;
 use Porro\Core\Health\Sources;
@@ -39,7 +42,7 @@ class SiteHealth extends Component
     ];
 
     /**
-     * @param  bool  $fresh  check again now, rather than use the last five minutes' result
+     * @param  bool  $fresh  check again now: support dates, advisories, Craft's updates and Porro's findings, rather than use what's cached
      * @return array<string, mixed>
      */
     public function get(bool $fresh = false): array
@@ -48,7 +51,7 @@ class SiteHealth extends Component
 
         if ($fresh) {
             $cache->delete(self::CACHE_KEY);
-            $this->sources()->forget('porro:'.($this->key()?->siteId ?? ''));
+            $this->forget();
         }
 
         $health = $cache->get(self::CACHE_KEY);
@@ -59,6 +62,32 @@ class SiteHealth extends Component
         }
 
         return $health;
+    }
+
+    /**
+     * Forgets everything the checks cached, so the next run asks again.
+     */
+    private function forget(): void
+    {
+        $sources = $this->sources();
+        $eol = new EndOfLife($sources);
+        $eol->forget('php');
+        $eol->forget('craft');
+
+        if ($lock = LockFile::read((string) Craft::getAlias('@root'))) {
+            (new Advisories($sources))->forget($lock);
+        }
+
+        if ($key = $this->key()) {
+            (new PorroFindings($sources, $key, Plugin::url()))->forget();
+        }
+
+        // Craft's own update check, which it otherwise caches for a day.
+        try {
+            Craft::$app->getUpdates()->getUpdates(true);
+        } catch (Throwable $e) {
+            Craft::warning('Couldn’t check for Craft updates: '.$e->getMessage(), __METHOD__);
+        }
     }
 
     /**
@@ -181,7 +210,7 @@ class SiteHealth extends Component
 
         return new Issue(
             'cms_update',
-            $critical ? Issue::WARNING : Issue::NOTICE,
+            $critical ? Issue::CRITICAL : Issue::NOTICE,
             $critical
                 ? Craft::t('porro', 'Critical update available')
                 : Craft::t('porro', '{count, plural, =1{# update available} other{# updates available}}', ['count' => $count]),
@@ -235,18 +264,25 @@ class SiteHealth extends Component
     }
 
     /**
-     * Craft's Guzzle client, so the site's proxy settings apply.
+     * Craft's Guzzle client, so the site's proxy settings apply. Streamed,
+     * so it stops reading once a response is over the limit.
      *
-     * @return Closure(string, string, array<string, string>, string|null, int): array{0: int, 1: string}
+     * @return Closure(string, string, array<string, string>, string|null, int, int): array{0: int, 1: string}
      */
     private function transport(): Closure
     {
-        return function (string $method, string $url, array $headers, ?string $body, int $timeout): array {
+        return function (string $method, string $url, array $headers, ?string $body, int $timeout, int $maxBytes = Sources::MAX_BYTES): array {
             try {
                 $response = Craft::createGuzzleClient(['timeout' => $timeout, 'http_errors' => false])
-                    ->request($method, $url, array_filter(['headers' => $headers, 'body' => $body], fn ($v) => $v !== null));
+                    ->request($method, $url, array_filter(['headers' => $headers, 'body' => $body, 'stream' => true], fn ($v) => $v !== null));
+                $stream = $response->getBody();
+                $data = '';
 
-                return [$response->getStatusCode(), (string) $response->getBody()];
+                while (! $stream->eof() && strlen($data) <= $maxBytes) {
+                    $data .= $stream->read(min(65536, $maxBytes + 1 - strlen($data)));
+                }
+
+                return [$response->getStatusCode(), $data];
             } catch (Throwable $e) {
                 return [0, $e->getMessage()];
             }

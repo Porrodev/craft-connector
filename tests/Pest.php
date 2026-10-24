@@ -1,5 +1,7 @@
 <?php
 
+use Porro\Core\SiteKey;
+
 /*
  * These tests drive a real Craft install with this plugin installed:
  * set CRAFT_PATH to its folder. CI builds one for Craft 4 and Craft 5.
@@ -149,9 +151,10 @@ function http(string $url, ?string $jar = null, ?array $post = null): array
 }
 
 /**
- * Logs the CI admin in to the control panel and returns the cookie jar.
+ * Logs the CI admin (or another user) in to the control panel and returns
+ * the cookie jar.
  */
-function logIn(string $site): string
+function logIn(string $site, string $username = 'admin'): string
 {
     $jar = (string) tempnam(sys_get_temp_dir(), 'jar');
     [, $info] = http("{$site}/index.php?p=actions/users/session-info", $jar);
@@ -159,7 +162,7 @@ function logIn(string $site): string
 
     [$status, $body] = http("{$site}/index.php?p=actions/users/login", $jar, [
         $info['csrfTokenName'] => $info['csrfTokenValue'],
-        'loginName' => 'admin',
+        'loginName' => $username,
         'password' => 'ci-only-password',
     ]);
 
@@ -192,4 +195,35 @@ function cache(string $action, string $key, ?string $value = null): void
     exec($command.' 2>&1', $output, $code);
 
     expect($code)->toBe(0, implode("\n", $output));
+}
+
+/**
+ * A control panel user who isn't an admin, with only these permissions.
+ */
+function cpUser(string $username, array $permissions): void
+{
+    $command = implode(' ', array_map('escapeshellarg', [PHP_BINARY, __DIR__.'/support/user.php', $username, ...$permissions]));
+    exec($command.' 2>&1', $output, $code);
+
+    expect($code)->toBe(0, implode("\n", $output));
+}
+
+/**
+ * The CSRF token on a control panel page.
+ */
+function csrf(string $html): string
+{
+    preg_match('/name="CRAFT_CSRF_TOKEN" value="([^"]+)"|"csrfTokenValue":"([^"]+)"/', $html, $m);
+
+    return ($m[1] ?? '') ?: ($m[2] ?? '');
+}
+
+/**
+ * The cache key php-core keeps Porro's findings under for this Porro and key.
+ */
+function findingsKey(string $url, string $key): string
+{
+    $siteKey = SiteKey::parse($key);
+
+    return 'porro:health:porro:'.$siteKey->siteId.':'.substr(hash('sha256', rtrim($url, '/')."\n".$siteKey->id()), 0, 16);
 }
