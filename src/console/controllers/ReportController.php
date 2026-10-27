@@ -29,8 +29,8 @@ class ReportController extends Controller
 
     public function actionIndex(): int
     {
-        if (! Plugin::enabled()) {
-            $this->stdout('Porro reporting is turned off (PORRO_ENABLED=false).'.PHP_EOL);
+        if ($reason = Plugin::offReason()) {
+            $this->stdout("Porro reporting is off: {$reason}.".PHP_EOL);
 
             return ExitCode::OK;
         }

@@ -42,6 +42,7 @@ class StatusController extends Controller
 
         $rows['composer.lock'] = (string) ($report['lock']['hash'] ?? 'not found');
         $rows['Key set'] = Plugin::key() ? 'yes' : 'no';
+        $rows['Reporting'] = ($reason = Plugin::offReason()) ? "off: {$reason}" : 'on';
 
         $width = max(array_map('strlen', array_keys($rows)));
         foreach ($rows as $label => $value) {

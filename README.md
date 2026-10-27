@@ -76,7 +76,7 @@ Control panel reports are a backup, not a replacement for cron: a quiet site wit
 - A 3-second timeout, no retries, and every error swallowed.
 - One 15-minute throttle shared with cron, deploys and events, kept in Craft's cache. Load-balanced servers sharing a cache send one report between them.
 
-Event reports skip the throttle. `PORRO_ENABLED=false` turns off every kind of report.
+Event reports skip the throttle. When reporting is off (see [Config](#config)), every kind of report is.
 
 ## What leaves a site
 
@@ -119,7 +119,9 @@ Craft's own update check is Craft's, as usual. Requests go through Craft's Guzzl
 | Env | Default | |
 |---|---|---|
 | `PORRO_KEY` | | The site key |
-| `PORRO_ENABLED` | `true` | Turn reporting off, e.g. on staging |
+| `PORRO_ENABLED` | unset | `true` or `false` to force reporting on or off |
+
+With `PORRO_ENABLED` unset, only production reports: `CRAFT_ENVIRONMENT` must be `production` (or `prod`, `live`, or unset) and devMode off. A local or staging copy running with the live `.env` stays quiet, so it can't overwrite the live site's state in Porro. Set `PORRO_ENABLED=true` to report from another environment on purpose. `php craft porro/status` shows whether reporting is on and why.
 
 ## Developing
 

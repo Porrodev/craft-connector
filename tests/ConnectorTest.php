@@ -113,7 +113,43 @@ it('sends nothing when reporting is turned off', function () {
     [$code, $output] = craft(['porro/report'], ['PORRO_ENABLED' => 'false']);
 
     expect($code)->toBe(0)
-        ->and($output)->toContain('turned off')
+        ->and($output)->toContain('off: PORRO_ENABLED=false')
+        ->and(reports())->toBe([]);
+});
+
+it('stays quiet outside production unless PORRO_ENABLED says otherwise', function () {
+    // Craft 4's starter loads .env over the process environment, so change it there.
+    $env = craftPath().'/.env';
+    $original = (string) file_get_contents($env);
+    $environment = function (string $name) use ($env, $original) {
+        file_put_contents($env, preg_replace('/^CRAFT_ENVIRONMENT=.*$/m', "CRAFT_ENVIRONMENT={$name}", $original));
+    };
+
+    try {
+        $environment('dev');
+        [$code, $output] = craft(['porro/report']);
+
+        expect($code)->toBe(0)
+            ->and($output)->toContain('off: not production (CRAFT_ENVIRONMENT=dev)')
+            ->and(reports())->toBe([]);
+
+        $environment('staging');
+        [, $output] = craft(['porro/status']);
+
+        expect($output)->toMatch('/Reporting\s+off: not production \(CRAFT_ENVIRONMENT=staging\)/');
+
+        [$code] = craft(['porro/report'], ['PORRO_ENABLED' => 'true']);
+
+        expect($code)->toBe(0)
+            ->and(reports())->toHaveCount(1);
+    } finally {
+        file_put_contents($env, $original);
+    }
+
+    clearReports();
+    [, $output] = craft(['porro/report'], ['CRAFT_DEV_MODE' => 'true', 'DEV_MODE' => 'true']);
+
+    expect($output)->toContain('off: devMode is on')
         ->and(reports())->toBe([]);
 });
 
