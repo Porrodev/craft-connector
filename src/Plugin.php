@@ -101,6 +101,23 @@ class Plugin extends BasePlugin
         return is_string($url) && $url !== '' ? rtrim($url, '/') : self::DEFAULT_URL;
     }
 
+    /**
+     * The environment the site is set up as. Unlike Craft::$app->env, never
+     * the request's host name, which Craft falls back to when it's unset.
+     */
+    public static function environment(): ?string
+    {
+        foreach (['CRAFT_ENVIRONMENT', 'ENVIRONMENT'] as $name) {
+            $value = App::env($name);
+
+            if (is_string($value) && $value !== '') {
+                return $value;
+            }
+        }
+
+        return null;
+    }
+
     public static function enabled(): bool
     {
         return self::offReason() === null;
@@ -124,9 +141,9 @@ class Plugin extends BasePlugin
             return $on ? null : 'PORRO_ENABLED=false';
         }
 
-        $environment = App::env('CRAFT_ENVIRONMENT');
+        $environment = self::environment();
 
-        if (is_string($environment) && $environment !== '' && ! in_array(strtolower($environment), ['production', 'prod', 'live'], true)) {
+        if ($environment !== null && ! in_array(strtolower($environment), ['production', 'prod', 'live'], true)) {
             return "not production (CRAFT_ENVIRONMENT={$environment}). Set PORRO_ENABLED=true to report from here";
         }
 

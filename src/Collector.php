@@ -21,7 +21,7 @@ class Collector
     {
         $general = Craft::$app->getConfig()->getGeneral();
 
-        $report->platform(Craft::$app->getVersion(), Craft::$app->env ?: null);
+        $report->platform(Craft::$app->getVersion(), Plugin::environment());
         $report->layer('craft', Craft::$app->getVersion(), [
             'edition' => strtolower(Craft::$app->getEditionName()),
             'plugins' => $this->plugins(),

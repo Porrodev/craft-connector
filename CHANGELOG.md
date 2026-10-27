@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Reporting now defaults to off outside production (`CRAFT_ENVIRONMENT` other than `production`, `prod` or `live`, or devMode on), so a local or staging copy with the live `.env` doesn't report as the live site. An explicit `PORRO_ENABLED=true` still reports from anywhere. `porro/status` and `porro/report` say why reporting is off.
+- Reports carry `CRAFT_ENVIRONMENT` (or `ENVIRONMENT`) as the environment, never the host name Craft falls back to when neither is set.
 
 ## 0.2.1 - 2026-10-24
 
