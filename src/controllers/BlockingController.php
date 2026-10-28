@@ -6,6 +6,7 @@ use Closure;
 use Craft;
 use craft\web\Controller;
 use Porro\Core\Activity\Blocklist;
+use Porro\Core\Activity\CloudflareError;
 use Porro\Core\Activity\Entry;
 use Porro\Core\Activity\Refused;
 use porro\craft\activity\Presenter;
@@ -52,6 +53,50 @@ class BlockingController extends Controller
         return $this->renderTemplate('porro/blocking/_nginx', (new Presenter(Plugin::getInstance()->getActivity()))->nginx($this->request->getRemoteIP()) + [
             'selectedSubnavItem' => 'blocking',
         ]);
+    }
+
+    /**
+     * Setting up Cloudflare: the token and its two permission policies,
+     * where it goes, and a button that connects.
+     */
+    public function actionCloudflare(): Response
+    {
+        return $this->renderTemplate('porro/blocking/_cloudflare', (new Presenter(Plugin::getInstance()->getActivity()))->cloudflare() + [
+            'selectedSubnavItem' => 'blocking',
+            'canManage' => Plugin::canManage(),
+        ]);
+    }
+
+    /**
+     * Connect from the page, so nobody needs a terminal: finds the zone,
+     * creates or reuses the list and adds the rule, then syncs.
+     */
+    public function actionCloudflareConnect(): ?Response
+    {
+        $this->requirePostRequest();
+        $this->requirePermission(Plugin::MANAGE_PERMISSION);
+        $cloudflare = Plugin::getInstance()->getActivity()->cloudflare();
+
+        if (! $cloudflare->configured()) {
+            $this->setFailFlash(Craft::t('porro', 'Set PORRO_CLOUDFLARE_TOKEN first, then connect.'));
+
+            return $this->redirectToPostedUrl(null, 'porro/blocking/cloudflare');
+        }
+
+        try {
+            $connection = $cloudflare->connect();
+        } catch (CloudflareError $e) {
+            $this->setFailFlash($e->getMessage());
+
+            return $this->redirectToPostedUrl(null, 'porro/blocking/cloudflare');
+        }
+
+        $result = $cloudflare->sync();
+        $this->setSuccessFlash($result !== null
+            ? Craft::t('porro', 'Connected to {zone} and synced the blocklist.', ['zone' => $connection['zone_name']])
+            : Craft::t('porro', 'Connected to {zone}. Only production syncs the blocklist.', ['zone' => $connection['zone_name']]));
+
+        return $this->redirectToPostedUrl(null, 'porro/blocking/cloudflare');
     }
 
     /**

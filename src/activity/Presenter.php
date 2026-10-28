@@ -176,6 +176,49 @@ class Presenter
         ];
     }
 
+    /** Where Cloudflare's API tokens are made. */
+    public const CLOUDFLARE_TOKENS_URL = 'https://dash.cloudflare.com/profile/api-tokens';
+
+    /**
+     * The token's two permission policies, named as Cloudflare's dashboard
+     * shows them: what to type in its search, what to tick, and under which
+     * heading it appears.
+     */
+    public const CLOUDFLARE_POLICIES = [
+        ['scope' => 'Specified Domains → this site’s domain', 'permissions' => [
+            ['search' => 'zone waf', 'tick' => 'Zone WAF Rules', 'group' => 'App Security', 'access' => 'Edit'],
+            ['search' => 'zone', 'tick' => 'Zone', 'group' => 'DNS & Zones', 'access' => 'Read'],
+        ]],
+        ['scope' => 'Entire Account', 'permissions' => [
+            ['search' => 'lists', 'tick' => 'Account Rule Lists', 'group' => 'Rules & Configuration', 'access' => 'Edit'],
+        ]],
+    ];
+
+    /**
+     * The Cloudflare setup page: the token, where it goes, and connecting.
+     *
+     * @return array<string, mixed>
+     */
+    public function cloudflare(): array
+    {
+        $mode = $this->activity->cloudflare();
+        $status = $mode->status();
+        $status['synced'] = $status['synced_at'] ? self::ago((int) $status['synced_at']) : null;
+
+        return [
+            'cloudflare' => $status,
+            'host' => $mode->host(),
+            'tokensUrl' => self::CLOUDFLARE_TOKENS_URL,
+            'policies' => self::CLOUDFLARE_POLICIES,
+            'envLine' => 'PORRO_CLOUDFLARE_TOKEN=',
+            'command' => 'php craft porro/cloudflare connect',
+            'steps' => [
+                'token' => $status['configured'],
+                'connected' => $status['connected'],
+            ],
+        ];
+    }
+
     /**
      * The nginx setup page: whether the site is behind Cloudflare (so the
      * real IP lines come first), whether the cache is shared, without which
