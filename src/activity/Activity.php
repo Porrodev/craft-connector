@@ -194,15 +194,15 @@ class Activity extends Component
             fn (array $keys) => $cache->multiGet($keys),
             buffer: $this->buffer(),
             lock: function (\Closure $work) {
-                // Flushes from other servers wait their turn, or skip this one.
+                // Taken by another server's flush: false, so this one stays due.
                 $mutex = Craft::$app->getMutex();
 
                 if (! $mutex->acquire('porro-activity-flush', 0)) {
-                    return;
+                    return false;
                 }
 
                 try {
-                    $work();
+                    return $work();
                 } finally {
                     $mutex->release('porro-activity-flush');
                 }
@@ -212,17 +212,38 @@ class Activity extends Component
 
     /**
      * This server's buffer file: PORRO_ACTIVITY_BUFFER, or storage/runtime/porro.
-     * Set it to false to record every request straight away.
+     * Set it to false to record every request straight away. Off on
+     * Lambda, whose storage goes with each container.
      */
     public function buffer(): ?Buffer
     {
         $path = App::env('PORRO_ACTIVITY_BUFFER');
 
-        if ($path === false || in_array(strtolower((string) $path), ['false', '0', 'off'], true)) {
+        if ($path === false || in_array(strtolower((string) $path), ['false', '0', 'off'], true) || getenv('AWS_LAMBDA_FUNCTION_NAME') !== false) {
             return null;
         }
 
-        return new Buffer(is_string($path) && $path !== '' ? $path : Craft::$app->getPath()->getRuntimePath().'/porro/activity.buf');
+        return new Buffer(is_string($path) && $path !== '' ? $path : self::bufferPath());
+    }
+
+    private static function bufferPath(): string
+    {
+        return Craft::$app->getPath()->getRuntimePath().'/porro/activity.buf';
+    }
+
+    /**
+     * Records what's waiting, or with batching off, deletes what an
+     * earlier setting left, so no raw IP stays on disk past 48 hours.
+     */
+    private function flushOrClear(): void
+    {
+        if ($this->buffer() === null) {
+            (new Buffer(self::bufferPath()))->clear();
+
+            return;
+        }
+
+        $this->recorder()->flush();
     }
 
     /**
@@ -253,11 +274,32 @@ class Activity extends Component
         }
 
         $this->buffered = false;
-        $odds = (int) (App::env('PORRO_ACTIVITY_FLUSH_ODDS') ?: self::FLUSH_ODDS);
+        // The lottery still waits 5 seconds between flushes, so a flood
+        // can't turn batching back into a write per request.
+        $lottery = random_int(1, max(1, (int) (App::env('PORRO_ACTIVITY_FLUSH_ODDS') ?: self::FLUSH_ODDS))) === 1;
 
-        if (random_int(1, max(1, $odds)) === 1 || $this->recorder()->flushDue()) {
+        if ($this->recorder()->flushDue($lottery ? 5 : 60)) {
+            self::finishResponse();
             $this->recorder()->flush();
         }
+    }
+
+    /**
+     * Lets the visitor go before a flush: this runs at shutdown, and Craft
+     * only finishes the response early for its queue. Any output still
+     * buffered is sent first.
+     */
+    private static function finishResponse(): void
+    {
+        if (! function_exists('fastcgi_finish_request') || Craft::$app->getRequest()->getIsConsoleRequest()) {
+            return;
+        }
+
+        while (ob_get_level() > 0 && @ob_end_flush()) {
+            //
+        }
+
+        fastcgi_finish_request();
     }
 
     public function probes(): Probes
@@ -444,7 +486,7 @@ class Activity extends Component
     public function maintain(): array
     {
         try {
-            $this->recorder()->flush();
+            $this->flushOrClear();
 
             if (! self::tablesExist()) {
                 return [];

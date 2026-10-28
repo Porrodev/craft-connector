@@ -22,7 +22,7 @@ function quietSite(array $env = []): string
 function flushedJustNow(): void
 {
     is_dir(dirname(buffered())) || mkdir(dirname(buffered()), 0775, true);
-    touch(buffered().'.lock');
+    touch(buffered().'.flushed');
 }
 
 it('only appends to the buffer, and the Activity page flushes before reading', function () {
@@ -60,17 +60,21 @@ it('flushes once the request is over when this server hasn’t for a minute', fu
     $site = quietSite();
     flushedJustNow();
     asVisitor("{$site}/.env", '45.83.64.32');
-    touch(buffered().'.lock', time() - 61);
+    touch(buffered().'.flushed', time() - 61);
 
     asVisitor("{$site}/.env", '45.83.64.32');
 
     expect(file_exists(buffered()))->toBeFalse();
 });
 
-it('flushes now and then by lottery', function () {
+it('flushes now and then by lottery, but not more than every 5 seconds', function () {
     $site = proxiedSite(['PORRO_ACTIVITY_FLUSH_ODDS' => '1']);
     flushedJustNow();
 
+    asVisitor("{$site}/.env", '45.83.64.33');
+    expect(file_exists(buffered()))->toBeTrue();
+
+    touch(buffered().'.flushed', time() - 6);
     asVisitor("{$site}/.env", '45.83.64.33');
 
     expect(file_exists(buffered()))->toBeFalse();
