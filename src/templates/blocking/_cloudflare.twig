@@ -1,0 +1,94 @@
+{% extends '_layouts/cp' %}
+
+{% set title = 'Set up Cloudflare'|t('porro') %}
+{% set crumbs = [{label: 'Blocking'|t('porro'), url: cpUrl('porro/blocking')}] %}
+
+{% macro done(ok) -%}
+    <span class="porro-chip {{ ok ? 'on' }}">{{ ok ? 'Done'|t('porro') : 'To do'|t('porro') }}</span>
+{%- endmacro %}
+
+{% block content %}
+    {% include 'porro/_partials/styles' %}
+    {% import _self as m %}
+    <div class="porro-page">
+        <p class="light porro-sub readable">{{ 'For sites behind Cloudflare: blocked IPs are stopped at Cloudflare’s edge, before they reach your server. Three steps, once for the site.'|t('porro') }}</p>
+
+        {% if cloudflare.configured and not cloudflare.production %}
+            <p class="notice">{{ 'This copy isn’t production, so it won’t sync the blocklist. You can still connect here to check the token.'|t('porro') }}</p>
+        {% endif %}
+
+        <section class="porro-pane">
+            <div class="porro-pane-head"><span>{{ '1 · Create a Cloudflare API token'|t('porro') }}</span>{{ m.done(steps.token) }}</div>
+            <div class="porro-pane-body">
+                <p>{{ 'In Cloudflare, open'|t('porro') }} <a href="{{ tokensUrl }}" target="_blank" rel="noopener">{{ 'My Profile → API Tokens'|t('porro') }}</a>{{ ', then Create Token → Create Custom Token. It needs two permission policies: one for the site’s domain, one for your account.'|t('porro') }}</p>
+                {% for policy in policies %}
+                    <p class="smalltext" style="margin: 14px 0 4px">
+                        <strong>{{ 'Policy {n}'|t('porro', {n: loop.index}) }}</strong> ·
+                        {% if loop.first %}
+                            {{ 'scope it to Specified Domains → {host}'|t('porro', {host: host ?: 'this site’s domain'|t('porro')}) }}
+                        {% else %}
+                            {{ 'scope it to Entire Account (Add policy, then pick Entire Account)'|t('porro') }}
+                        {% endif %}
+                    </p>
+                    <table class="data fullwidth">
+                        <thead><tr><th>{{ 'Search for'|t('porro') }}</th><th>{{ 'Tick'|t('porro') }}</th><th>{{ 'Access'|t('porro') }}</th></tr></thead>
+                        <tbody>
+                            {% for p in policy.permissions %}
+                                <tr><td><code>{{ p.search }}</code></td><td>{{ p.tick }} <span class="light smalltext">· {{ 'under {group}'|t('porro', {group: p.group}) }}</span></td><td>{{ p.access }}</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% endfor %}
+                <p class="light smalltext" style="margin-top: 10px">{{ 'Create the token and copy it: Cloudflare only shows it once.'|t('porro') }}</p>
+            </div>
+        </section>
+
+        <section class="porro-pane">
+            <div class="porro-pane-head"><span>{{ '2 · Add it to the site’s environment'|t('porro') }}</span>{{ m.done(steps.token) }}</div>
+            <div class="porro-pane-body">
+                <p>{{ 'Paste the token after the = in .env, or on Forge, the site’s Environment tab. It stays in the environment, never the database or project config.'|t('porro') }}</p>
+                <div style="display: flex; gap: 8px; align-items: flex-start">
+                    <pre class="porro-code" style="flex: 1; margin: 0"><code>{{ envLine }}your-token-here</code></pre>
+                    <button type="button" class="btn small" data-porro-copy="{{ envLine }}">{{ 'Copy'|t('porro') }}</button>
+                </div>
+                <p class="light smalltext">{{ steps.token ? 'Token found.'|t('porro') : 'This page ticks this off once the site can see the token.'|t('porro') }}</p>
+            </div>
+        </section>
+
+        <section class="porro-pane">
+            <div class="porro-pane-head"><span>{{ '3 · Connect'|t('porro') }}</span>{{ m.done(steps.connected) }}</div>
+            <div class="porro-pane-body">
+                <div class="porro-shared">
+                    <strong>{{ 'One list for the whole Cloudflare account.'|t('porro') }}</strong>
+                    {{ 'Cloudflare keeps IP lists per account, not per domain, so porro_blocklist is shared by every site you connect on this account. An IP blocked on one of them is blocked on all of them. Each site only adds and removes its own entries, and you’ll find the list under Manage account → Configurations → Lists.'|t('porro') }}
+                    {{ 'Sites that mustn’t share blocks, such as different clients, need their own Cloudflare accounts.'|t('porro') }}
+                </div>
+                {% if cloudflare.connected %}
+                    <p>{{ 'Connected to {zone}. Blocks go to the porro_blocklist list, with one rule blocking it next to your existing rules.'|t('porro', {zone: cloudflare.zone}) }}</p>
+                    {% if cloudflare.error %}
+                        <p class="smalltext porro-critical">{{ cloudflare.error }}</p>
+                    {% elseif cloudflare.synced %}
+                        <p class="light smalltext">{{ 'Last synced {ago}. It syncs from the queue after every change.'|t('porro', {ago: cloudflare.synced}) }}</p>
+                    {% else %}
+                        <p class="light smalltext">{{ 'Waiting for the first sync.'|t('porro') }}</p>
+                    {% endif %}
+                {% else %}
+                    <p>{{ 'Finds the zone for {host}, creates the porro_blocklist list if the account doesn’t have it yet, and adds one rule blocking it, next to your existing rules, never replacing them.'|t('porro', {host: host ?: 'this site'|t('porro')}) }}</p>
+                    {% if canManage %}
+                        <form method="post" accept-charset="UTF-8">
+                            {{ csrfInput() }}
+                            {{ actionInput('porro/blocking/cloudflare-connect') }}
+                            {{ redirectInput('porro/blocking/cloudflare') }}
+                            <button type="submit" class="btn submit {{ not steps.token ? 'disabled' }}" {{ not steps.token ? 'disabled' }}>{{ 'Connect to Cloudflare'|t('porro') }}</button>
+                        </form>
+                    {% endif %}
+                    <p class="light smalltext">{{ 'Or on the server:'|t('porro') }} <code>{{ command }}</code></p>
+                    {% if cloudflare.error %}
+                        <p class="smalltext porro-critical">{{ cloudflare.error }}</p>
+                    {% endif %}
+                {% endif %}
+            </div>
+        </section>
+    </div>
+    {% include 'porro/_partials/confirm' %}
+{% endblock %}

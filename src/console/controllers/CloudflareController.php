@@ -20,7 +20,7 @@ class CloudflareController extends Controller
         $cloudflare = Plugin::getInstance()->getActivity()->cloudflare();
 
         if (! $cloudflare->configured()) {
-            $this->stderr('Set PORRO_CLOUDFLARE_TOKEN first: a token with Account Filter Lists Edit, Zone WAF Edit and Zone Read.'.PHP_EOL);
+            $this->stderr('Set PORRO_CLOUDFLARE_TOKEN first: a token with Zone WAF Rules: Edit and Zone: Read on the site’s domain, and Account Rule Lists: Edit on the account. Porro → Blocking → Set up Cloudflare walks through it.'.PHP_EOL);
 
             return ExitCode::CONFIG;
         }
