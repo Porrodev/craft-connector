@@ -1,6 +1,6 @@
 {
     "name": "porro/craft-connector",
-    "description": "Site health for Craft CMS 4–5: security advisories, end-of-life PHP and Craft, updates, dev mode, migrations and the queue, in a control panel section and dashboard widget. Free; connect Porro to add uptime, SSL, domain and server checks.",
+    "description": "Site health, suspicious activity and IP blocking for Craft CMS 4–5, in the control panel: security advisories, end-of-life PHP and Craft, updates, dev mode, migrations and the queue, plus probes, failed sign-ins and form floods, blocked in Craft, at Cloudflare or in nginx. Free; connect Porro to add uptime, SSL, domain and server checks.",
     "type": "craft-plugin",
     "license": "MIT",
     "homepage": "https://porro.dev",
@@ -14,6 +14,9 @@
         "end of life",
         "updates",
         "monitoring",
+        "blocking",
+        "firewall",
+        "cloudflare",
         "porro"
     ],
     "support": {
@@ -47,7 +50,7 @@
         "developerUrl": "https://porro.dev",
         "documentationUrl": "https://github.com/Porrodev/craft-connector",
         "class": "porro\\craft\\Plugin",
-        "description": "Security advisories, end-of-life versions, updates and site health, checked inside your site. Connect Porro for uptime, SSL, domain and server checks too.",
+        "description": "Site health, suspicious activity and IP blocking in your control panel: advisories, end-of-life versions and updates, plus probes and failed sign-ins, blocked in Craft, at Cloudflare or in nginx. Free; connect Porro for uptime, SSL, domain and server checks too.",
         "changelogUrl": "https://raw.githubusercontent.com/Porrodev/craft-connector/main/CHANGELOG.md"
     },
     "scripts": {
