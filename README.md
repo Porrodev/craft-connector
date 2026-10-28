@@ -56,7 +56,7 @@ The blocklist and safelist are tables, so every server of a site shares them, an
 
 Some addresses can never be blocked: Cloudflare, Laravel Forge and its health checks, Google's and Bing's published crawler ranges, and private and reserved ranges. **Always protected** on the Blocking page lists each, with why and where the addresses come from. Blocks that overlap them are refused.
 
-What's recorded stays on the site, in Craft's cache, for 48 hours. Failed sign-in usernames are only kept as a keyed hash. Only production records unless you set `PORRO_ACTIVITY=true`, since a local copy's own traffic is noise; blocks apply everywhere.
+What's recorded stays on the site for 48 hours, in Porro's own `porro_cache` table, so `clear-caches` on deploy doesn't wipe it. Expired rows are cleared hourly; a database backup taken in those 48 hours will include them. Failed sign-in usernames are only kept as a keyed hash. Only production records unless you set `PORRO_ACTIVITY=true`, since a local copy's own traffic is noise; blocks apply everywhere.
 
 **Behind a load balancer or proxy?** Set Craft's [`trustedHosts`](https://craftcms.com/docs/5.x/reference/config/general.html#trustedhosts) to its addresses (or `CRAFT_TRUSTED_HOSTS=10.0.0.5`). Craft's default trusts `X-Forwarded-For` from anyone, which would let a visitor choose their own address, so until `trustedHosts` names your proxies the plugin ignores forwarded headers and uses the address that connected. Behind Cloudflare nothing is needed: Cloudflare's header is believed only when the request really came from Cloudflare.
 

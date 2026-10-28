@@ -42,7 +42,7 @@ class NginxServers
         try {
             $servers = $this->all();
             $servers[self::name()] = $status;
-            Craft::$app->getCache()->set(self::KEY, array_filter($servers, fn ($s) => ($s['checked_at'] ?? 0) > time() - self::FORGET_AFTER), 0);
+            Activity::store()->set(self::KEY, array_filter($servers, fn ($s) => ($s['checked_at'] ?? 0) > time() - self::FORGET_AFTER), 0);
         } catch (Throwable) {
             // A broken cache only means the page can't list this server.
         }
@@ -55,7 +55,7 @@ class NginxServers
      */
     public function all(): array
     {
-        $servers = Craft::$app->getCache()->get(self::KEY);
+        $servers = Activity::store()->get(self::KEY);
 
         return is_array($servers) ? $servers : [];
     }

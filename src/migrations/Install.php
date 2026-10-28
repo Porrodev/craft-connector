@@ -12,6 +12,7 @@ class Install extends Migration
     public function safeUp(): bool
     {
         (new m261028_000000_blocklist_tables)->createTables($this);
+        (new m261029_000000_porro_cache)->createTables($this);
 
         return true;
     }
@@ -20,6 +21,7 @@ class Install extends Migration
     {
         $this->dropTableIfExists('{{%porro_blocklist}}');
         $this->dropTableIfExists('{{%porro_safelist}}');
+        $this->dropTableIfExists('{{%porro_cache}}');
 
         return true;
     }

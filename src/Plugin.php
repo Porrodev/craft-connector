@@ -42,7 +42,7 @@ class Plugin extends BasePlugin
     public const MANAGE_PERMISSION = 'porro-manageBlocking';
 
     // 1.1.0: the blocklist and safelist tables.
-    public string $schemaVersion = '1.1.0';
+    public string $schemaVersion = '1.2.0';
 
     public bool $hasCpSection = true;
 

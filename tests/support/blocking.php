@@ -1,6 +1,7 @@
 <?php
 
 use craft\console\Application;
+use porro\craft\activity\Activity;
 use porro\craft\Plugin;
 
 /*
@@ -21,8 +22,10 @@ $activity = Plugin::getInstance()->getActivity();
 
 switch ($action) {
     case 'reset':
-        // Recorded activity and the compiled blocklist live in the cache.
+        // The compiled blocklist lives in Craft's cache; recorded activity
+        // in Porro's own table, which clear-caches leaves alone.
         $app->getCache()->flush();
+        Activity::store()->flush();
         $app->getDb()->createCommand()->delete('{{%porro_blocklist}}')->execute();
         $app->getDb()->createCommand()->delete('{{%porro_safelist}}')->execute();
         break;

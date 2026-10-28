@@ -27,6 +27,21 @@ it('records probes and 404s, and shows the IPs on the Activity page', function (
         ->toContain('id="porro-confirm"');
 });
 
+it('keeps activity through clear-caches, as a deploy runs it', function () {
+    $site = proxiedSite();
+
+    foreach (['/.env', '/.git/config', '/wp-login.php'] as $path) {
+        asVisitor("{$site}{$path}", '45.83.64.10');
+    }
+
+    [$code] = craft(['clear-caches/all']);
+    [, $html] = http("{$site}/index.php?p=admin/porro/activity", logIn($site));
+
+    expect($code)->toBe(0)
+        ->and($html)->toContain('45.83.64.10')
+        ->toContain('probe 3');
+});
+
 it('counts failed sign-ins, and not as form posts', function () {
     $site = proxiedSite();
     $jar = (string) tempnam(sys_get_temp_dir(), 'jar');
