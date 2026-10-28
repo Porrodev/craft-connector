@@ -1,0 +1,48 @@
+{% extends '_layouts/cp' %}
+
+{% set title = list == 'safelist' ? 'Safelist'|t('porro') : 'Blocklist'|t('porro') %}
+{% set crumbs = [{label: 'Blocking'|t('porro'), url: cpUrl('porro/blocking')}] %}
+{% set base = cpUrl('porro/blocking/' ~ list) %}
+{% macro link(base, params) -%}
+    {{ url(base, params|filter(v => v is not same as(null) and v is not same as(''))) }}
+{%- endmacro %}
+
+{% block content %}
+    {% include 'porro/_partials/styles' %}
+    {% import _self as self %}
+    {% set current = {q: search, filter: filter == 'all' ? null : filter} %}
+    <div class="porro-page">
+        <p class="light porro-sub">{{ '{count, plural, =1{# entry} other{# entries}}'|t('porro', {count: total}) }}{% if list == 'safelist' %} · {{ 'never blocked or flagged'|t('porro') }}{% endif %}</p>
+
+        {% if failed %}
+            <p class="error">{{ 'The blocklist tables aren’t there yet. Run php craft migrate/all on this site.'|t('porro') }}</p>
+        {% endif %}
+
+        <section class="porro-pane">
+            <form method="get" action="{{ base }}" class="porro-form">
+                {% if filter != 'all' %}{{ hiddenInput('filter', filter) }}{% endif %}
+                <input type="text" class="text" name="q" value="{{ search }}" placeholder="{{ 'Search: an IP, a range, a reason or who added it'|t('porro') }}" aria-label="{{ 'Search'|t('porro') }}" style="flex: 1 1 18rem">
+                <button type="submit" class="btn">{{ 'Search'|t('porro') }}</button>
+                {% if search != '' %}<a class="btn" href="{{ self.link(base, current|merge({q: null})) }}">{{ 'Clear'|t('porro') }}</a>{% endif %}
+            </form>
+            <div class="porro-pane-body" style="border-bottom: 1px solid var(--hairline-color, #e3e5e8)">
+                {% for f in filters %}
+                    {% if f.count > 0 or f.key == 'all' or f.key == filter %}
+                        <a href="{{ self.link(base, current|merge({filter: f.key == 'all' ? null : f.key})) }}" class="porro-chip" {% if f.key == filter %}aria-current="true"{% endif %}>{{ f.label }} {{ f.count|number }}</a>
+                    {% endif %}
+                {% endfor %}
+            </div>
+            {% include 'porro/_partials/entries' with {
+                remove: list == 'safelist' ? 'porro/blocking/unsafelist' : 'porro/blocking/unblock',
+                empty: search != '' or filter != 'all' ? 'Nothing matches.'|t('porro') : (list == 'safelist' ? 'Nothing is safelisted.'|t('porro') : 'Nothing is blocked.'|t('porro')),
+            } %}
+            {% if pages > 1 %}
+                <div class="porro-row" style="justify-content: space-between">
+                    {% if page > 1 %}<a class="btn" href="{{ self.link(base, current|merge({page: page - 1})) }}">← {{ 'Newer'|t('porro') }}</a>{% else %}<span></span>{% endif %}
+                    <span class="light smalltext">{{ 'Page {page} of {pages} · {count} shown'|t('porro', {page: page, pages: pages, count: shown|number}) }}</span>
+                    {% if page < pages %}<a class="btn" href="{{ self.link(base, current|merge({page: page + 1})) }}">{{ 'Older'|t('porro') }} →</a>{% else %}<span></span>{% endif %}
+                </div>
+            {% endif %}
+        </section>
+    </div>
+{% endblock %}

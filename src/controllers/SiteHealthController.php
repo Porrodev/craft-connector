@@ -26,7 +26,7 @@ class SiteHealthController extends Controller
 
     public function actionIndex(): Response
     {
-        return $this->renderTemplate('porro/_index', Plugin::getInstance()->getSiteHealth()->view());
+        return $this->renderTemplate('porro/_index', Plugin::getInstance()->getSiteHealth()->view() + ['selectedSubnavItem' => 'health']);
     }
 
     /**

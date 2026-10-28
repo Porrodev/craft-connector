@@ -1,6 +1,6 @@
 # Porro Site Health for Craft CMS
 
-Site health for Craft CMS 4 and 5, inside the control panel. It checks the site for the things that quietly go wrong between projects (security advisories in your Composer packages, PHP and Craft versions running out of security support, Craft and plugin updates, dev mode left on, migrations not run, a stuck queue) and tells you what to do about each.
+Site health, suspicious activity and blocking for Craft CMS 4 and 5, inside the control panel. It checks the site for the things that quietly go wrong between projects (security advisories in your Composer packages, PHP and Craft versions running out of security support, Craft and plugin updates, dev mode left on, migrations not run, a stuck queue) and tells you what to do about each. It also spots who's probing the site for secrets, trying passwords or flooding its forms, and lets you block them in a click.
 
 It's free and works on its own. If you use [Porro](https://porro.dev) to look after your sites, connecting it adds what can only be seen from outside: uptime, SSL certificates, domain expiry and the server's operating system.
 
@@ -15,13 +15,13 @@ composer require porro/craft-connector
 php craft plugin/install porro
 ```
 
-Then open **Porro Site Health** in the control panel nav. There's a dashboard widget too (New widget → Porro Site Health). It shows the last result rather than running the checks, so the dashboard never waits on them.
+Then open **Porro** in the control panel nav: **Site health**, **Activity** and **Blocking**. There's a dashboard widget too (New widget → Porro Site Health). It shows the last result rather than running the checks, so the dashboard never waits on them.
 
 <img src="docs/images/craft-widget.png" alt="The Porro Site Health dashboard widget" width="320">
 
 ### Who can see it
 
-Admins, and users or groups with the **Access Porro** permission (Settings → Users). The page, the widget and **Check again** all check it.
+Admins, and users or groups with the **Access Porro** permission (Settings → Users). The pages, the widget and **Check again** all check it. Blocking, unblocking and safelisting also need **Block, unblock and safelist IPs**, under Porro in the same list; without it the Activity and Blocking pages are read-only.
 
 ## What it checks
 
@@ -36,6 +36,18 @@ On the site itself, with no account:
 | Cron | Once connected: whether cron runs `porro/report`. Without it Porro only hears from the site when someone uses the control panel. |
 
 Results are cached for five minutes, and the public data behind them for between six hours and a day, so the page is quick and the APIs aren't asked often. **Check again** runs everything now.
+
+## Suspicious activity and blocking
+
+**Activity** lists the IPs worth a look from the last 24 hours, worst first: probes for secrets and admin tools (`/.env`, `/.git/config`, `wp-login.php`, `phpmyadmin`…), failed control panel sign-ins, bursts of 404s and form floods. Each IP opens to its details: country, network, a reverse DNS name checked both ways, the Tor exit and Spamhaus DROP lists, and a plain note when something claiming to be Googlebot or Bingbot isn't. What it did here is drawn hour by hour, with its last requests.
+
+From there, or from **Blocking**, an IP or a range can be blocked for 7 days, 30 days or for good. Every block and safelist asks first, saying what will happen to whom. Blocked IPs get a plain 403 before Craft handles the request, on the front end and in the control panel. The blocklist and safelist are tables, so every server of a site shares them, and their own pages search by IP (an IP finds the ranges that cover it), reason or who added it, 50 a page.
+
+Some addresses can never be blocked: Cloudflare, Laravel Forge and its health checks, Google's and Bing's published crawler ranges, and private and reserved ranges. **Always protected** on the Blocking page lists each, with why and where the addresses come from. Blocks that overlap them are refused.
+
+What's recorded stays on the site, in Craft's cache, for 48 hours. Failed sign-in usernames are only kept as a keyed hash. Only production records unless you set `PORRO_ACTIVITY=true`, since a local copy's own traffic is noise; blocks apply everywhere.
+
+**Behind a load balancer or proxy?** Set Craft's [`trustedHosts`](https://craftcms.com/docs/5.x/reference/config/general.html#trustedhosts) to its addresses (or `CRAFT_TRUSTED_HOSTS=10.0.0.5`). Craft's default trusts `X-Forwarded-For` from anyone, which would let a visitor choose their own address, so until `trustedHosts` names your proxies the plugin ignores forwarded headers and uses the address that connected. Behind Cloudflare nothing is needed: Cloudflare's header is believed only when the request really came from Cloudflare.
 
 ## Connect Porro (optional)
 
@@ -111,6 +123,11 @@ Content, entries, assets, users, settings values or secrets. Run `php craft porr
 | `packagist.org` | Advisory check, at most every 6 hours or when `composer.lock` changes | Package names from `composer.lock` |
 | `endoflife.date` | Support dates, at most once a day | Nothing beyond the request |
 | `app.porro.dev` | Only once connected: reports every 15 minutes, findings when the Porro Site Health page is open (cached 5 minutes) | Signed with the site key |
+| Cloudflare, Google, Bing, Forge | Always-protected ranges, at most once a day, from cron or when Activity or Blocking is opened. A copy ships with the plugin. | Nothing beyond the request |
+| `check.torproject.org`, `spamhaus.org` | The Tor exit list (hourly at most) and DROP lists (daily), when activity or an IP's details are shown | Nothing beyond the request |
+| `download.db-ip.com` | The free country file, monthly, in production | Nothing beyond the request |
+| DNS | Reverse and forward lookups when an IP's details are opened | The IP |
+| `api.abuseipdb.com` | Only when someone clicks **Check on AbuseIPDB**, with `PORRO_ABUSEIPDB_KEY` set | The IP |
 
 Craft's own update check is Craft's, as usual. Requests go through Craft's Guzzle client, so proxy settings apply.
 
@@ -120,6 +137,26 @@ Craft's own update check is Craft's, as usual. Requests go through Craft's Guzzl
 |---|---|---|
 | `PORRO_KEY` | | The site key |
 | `PORRO_ENABLED` | `true` | Turn reporting off, e.g. on staging |
+| `PORRO_ACTIVITY` | production only | Record suspicious activity |
+| `PORRO_BLOCK_APP` | `true` | Turn blocked IPs away with a 403 |
+| `PORRO_PROTECT_FORGE` | `true` | Keep Laravel Forge's addresses unblockable. Not on Forge? Set `false` |
+| `PORRO_PROTECT_CRAWLERS` | `true` | Keep Google's and Bing's crawlers unblockable |
+| `PORRO_ABUSEIPDB_KEY` | | Check an IP's reputation on request |
+
+The rest goes in `config/porro.php`:
+
+```php
+return [
+    // Never blocked or flagged, and can't be removed in the control panel.
+    'safelist' => ['203.0.113.7', ['cidr' => '198.51.100.0/24', 'note' => 'Office']],
+    // Infrastructure that must always reach the site, on top of the built-in lists.
+    'protected' => ['192.0.2.0/24'],
+    // Paths the site really serves that look like scanner paths.
+    'served' => ['/backup.zip'],
+    // When an IP is flagged: probes and failed logins per hour, 404s and form posts per 10 minutes.
+    'thresholds' => ['probe' => 3, 'login_failed' => 10, 'not_found' => 60, 'post_flood' => 20],
+];
+```
 
 ## Developing
 

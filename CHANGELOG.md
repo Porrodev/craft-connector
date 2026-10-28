@@ -1,5 +1,15 @@
 # Release Notes for Porro Site Health
 
+## Unreleased
+
+- Added **Activity**: probes for secrets and admin tools, failed sign-ins, 404 bursts and form floods from the last 24 hours, worst first, with each IP's details (network, verified reverse DNS, Tor and Spamhaus lists, fake crawlers) and what it did here.
+- Added **Blocking**: block an IP or range for 7 days, 30 days or for good, and safelist addresses. Blocked IPs get a 403 before Craft handles the request. Every block and safelist asks first. The full lists have their own searchable, filterable pages.
+- **Always protected**: Cloudflare, Forge, Google's and Bing's crawlers and private ranges can't be blocked; the Blocking page lists each with why. Forge and the crawlers can be switched off.
+- Suspicious activity shows on Site health too.
+- New permission: **Block, unblock and safelist IPs**.
+- The control panel nav item is now **Porro**, with Site health, Activity and Blocking under it.
+- Requires `porro/php-core` 0.3. Adds the `porro_blocklist` and `porro_safelist` tables (`php craft up`).
+
 ## 0.2.1 - 2026-10-24
 
 - A critical Craft or plugin update now shows as **Act now** rather than **Needs attention**.
