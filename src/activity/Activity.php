@@ -234,7 +234,8 @@ class Activity extends Component
     {
         $path = trim((string) App::env('PORRO_NGINX_PATH'));
 
-        return $path !== '' ? $path : Craft::$app->getPath()->getStoragePath().'/porro/nginx-blocklist.conf';
+        // On zero-downtime deploys (releases/{id}), a path that outlives the release.
+        return $path !== '' ? $path : NginxBlocklist::stablePath(Craft::$app->getPath()->getStoragePath().'/porro/nginx-blocklist.conf');
     }
 
     /** The stamp the reload job touches; the default suits Forge. */
