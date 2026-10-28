@@ -116,10 +116,6 @@ class WatchRequests
             $method = self::method();
             $path = self::path();
 
-            // Expired rows are cleared now and then even without cron.
-            if (random_int(1, 500) === 1) {
-                $activity->tidyStore();
-            }
             $status = (int) (http_response_code() ?: Craft::$app->getResponse()->getStatusCode());
             $recorder = $activity->recorder();
             $category = $activity->probes()->match($path);
@@ -144,6 +140,16 @@ class WatchRequests
             } elseif (! $this->failedLogin && $activity->watching($ip)) {
                 // Flagged already: count the rest, so its page shows them all.
                 $recorder->seen($ip, $method, $path, $status, $more['host'], $more['userAgent'], $more['proxied']);
+            }
+        } catch (Throwable) {
+            //
+        }
+
+        // Expired rows are cleared now and then even without cron, after
+        // recording, so a failed tidy never costs an event.
+        try {
+            if (random_int(1, 500) === 1 && ($activity = $this->activity()) && $activity->recording()) {
+                $activity->tidyStore();
             }
         } catch (Throwable) {
             //
