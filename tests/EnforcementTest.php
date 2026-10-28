@@ -83,8 +83,52 @@ it('says how to set up Cloudflare, and that a token alone isn’t connected', fu
     [, $token] = http("{$with}/index.php?p=admin/porro/blocking", logIn($with));
     [$code, $output] = craft(['porro/cloudflare', 'status']);
 
-    expect($setUp)->toContain('PORRO_CLOUDFLARE_TOKEN=your-token-here')
-        ->and($token)->toContain('token set, not connected')->toContain('php craft porro/cloudflare connect')
+    expect($setUp)->toContain('Set up Cloudflare →')->toContain('porro/blocking/cloudflare')->not->toContain('Account Filter Lists')
+        ->and($token)->toContain('token set, not connected')->toContain('Finish setting up →')
         ->and($code)->not->toBe(0)
         ->and($output)->toContain('Set PORRO_CLOUDFLARE_TOKEN first');
+});
+
+it('walks through the Cloudflare token, the environment and connecting', function () {
+    $site = proxiedSite();
+    $jar = logIn($site);
+
+    [$status, $html] = http("{$site}/index.php?p=admin/porro/blocking/cloudflare", $jar);
+
+    expect($status)->toBe(200)
+        ->and($html)->toContain('1 · Create a Cloudflare API token')
+        ->toContain('2 · Add it to the site’s environment')
+        ->toContain('3 · Connect')
+        ->toContain('Zone WAF Rules')
+        ->toContain('Account Rule Lists')
+        ->toContain('data-porro-copy="PORRO_CLOUDFLARE_TOKEN="')
+        ->toContain('One list for the whole Cloudflare account.')
+        ->toContain('php craft porro/cloudflare connect')
+        ->toContain('porro/blocking/cloudflare-connect');
+
+    // No token yet: it says so, and calls nothing.
+    http("{$site}/index.php?p=admin/porro/blocking/cloudflare", $jar, [
+        'CRAFT_CSRF_TOKEN' => csrf($html),
+        'action' => 'porro/blocking/cloudflare-connect',
+    ]);
+    [, $after] = http("{$site}/index.php?p=admin/porro/blocking/cloudflare", $jar);
+
+    expect($after)->toContain('Set PORRO_CLOUDFLARE_TOKEN first, then connect.');
+});
+
+it('lets only users who manage blocking connect Cloudflare', function () {
+    cpUser('viewer', ['accessCp', 'accessPlugin-porro']);
+    $site = proxiedSite(['PORRO_CLOUDFLARE_TOKEN' => 'not-a-real-token']);
+    $jar = logIn($site, 'viewer');
+
+    [$status, $page] = http("{$site}/index.php?p=admin/porro/blocking/cloudflare", $jar);
+
+    expect($status)->toBe(200)->and($page)->not->toContain('porro/blocking/cloudflare-connect');
+
+    [$status] = http("{$site}/index.php?p=admin/porro/blocking/cloudflare", $jar, [
+        'CRAFT_CSRF_TOKEN' => csrf($page),
+        'action' => 'porro/blocking/cloudflare-connect',
+    ]);
+
+    expect($status)->toBe(403);
 });

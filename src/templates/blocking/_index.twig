@@ -33,14 +33,9 @@
                         {%- else %}{{ 'waiting for the first sync'|t('porro') }}{% endif -%}
                     </span>
                     {% if cloudflare.connected %}
-                        <div class="smalltext">{{ 'Blocked at the edge, before traffic reaches the server · zone {zone} · list porro_blocklist'|t('porro', {zone: cloudflare.zone}) }}{% if cloudflare.result and cloudflare.result.shared %} · {{ '{count, plural, =1{# already blocked by another site} other{# already blocked by other sites}}'|t('porro', {count: cloudflare.result.shared}) }}{% endif %}</div>
-                    {% elseif cloudflare.configured %}
-                        <div class="smalltext">{{ 'Run this on the server to find the zone, create the porro_blocklist list and add the rule next to your existing ones:'|t('porro') }}</div>
-                        <pre class="porro-code"><code>php craft porro/cloudflare connect</code></pre>
+                        <div class="smalltext">{{ 'Blocked at the edge, before traffic reaches the server · zone {zone} · list porro_blocklist'|t('porro', {zone: cloudflare.zone}) }}{% if cloudflare.result and cloudflare.result.shared %} · {{ '{count, plural, =1{# already blocked by another site} other{# already blocked by other sites}}'|t('porro', {count: cloudflare.result.shared}) }}{% endif %} · <a href="{{ cpUrl('porro/blocking/cloudflare') }}">{{ 'Setup →'|t('porro') }}</a></div>
                     {% else %}
-                        <div class="smalltext">{{ 'Blocks at Cloudflare’s edge for sites behind it. Create a token with Account Filter Lists Edit, Zone WAF Edit and Zone Read, then:'|t('porro') }}</div>
-                        <pre class="porro-code"><code>PORRO_CLOUDFLARE_TOKEN=your-token-here
-php craft porro/cloudflare connect</code></pre>
+                        <div class="smalltext">{{ 'For sites behind Cloudflare: blocks at Cloudflare’s edge, before traffic reaches the server. Three steps, and no terminal needed.'|t('porro') }} <a href="{{ cpUrl('porro/blocking/cloudflare') }}">{{ (cloudflare.configured ? 'Finish setting up →' : 'Set up Cloudflare →')|t('porro') }}</a></div>
                     {% endif %}
                     {% if cloudflare.error %}<div class="smalltext porro-critical">{{ cloudflare.error }}</div>{% endif %}
                 </div>
