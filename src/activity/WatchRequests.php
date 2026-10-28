@@ -34,6 +34,9 @@ class WatchRequests
         }
 
         Craft::$app->on(Application::EVENT_BEFORE_REQUEST, function () {
+            // Per request, should a worker serve more than one.
+            $this->blocked = false;
+            $this->failedLogin = false;
             $this->turnAway();
 
             if (! $this->blocked) {
