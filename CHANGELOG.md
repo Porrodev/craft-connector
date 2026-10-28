@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Reporting now defaults to off outside production (`CRAFT_ENVIRONMENT` other than `production`, `prod` or `live`, or devMode on), so a local or staging copy with the live `.env` doesn't report as the live site. An explicit `PORRO_ENABLED=true` still reports from anywhere. `porro/status` and `porro/report` say why reporting is off.
+- Reports carry `CRAFT_ENVIRONMENT` (or `ENVIRONMENT`) as the environment, never the host name Craft falls back to when neither is set.
 - Added **Activity**: probes for secrets and admin tools, failed sign-ins, 404 bursts and form floods from the last 24 hours, worst first, with each IP's details (network, verified reverse DNS, Tor and Spamhaus lists, fake crawlers) and what it did here.
 - Added **Blocking**: block an IP or range for 7 days, 30 days or for good, and safelist addresses. Blocked IPs get a 403 before Craft handles the request. Every block and safelist asks first. The full lists have their own searchable, filterable pages.
 - Block at Cloudflare's edge (`PORRO_CLOUDFLARE_TOKEN`, `php craft porro/cloudflare connect`) or in nginx (`PORRO_BLOCK_NGINX`, with a setup page that tracks each server), as the Laravel, Statamic and Filament connectors do.

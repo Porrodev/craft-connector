@@ -158,15 +158,56 @@ class Plugin extends BasePlugin
         return is_string($url) && $url !== '' ? rtrim($url, '/') : self::DEFAULT_URL;
     }
 
+    /**
+     * The environment the site is set up as. Unlike Craft::$app->env, never
+     * the request's host name, which Craft falls back to when it's unset.
+     */
+    public static function environment(): ?string
+    {
+        foreach (['CRAFT_ENVIRONMENT', 'ENVIRONMENT'] as $name) {
+            $value = App::env($name);
+
+            if (is_string($value) && $value !== '') {
+                return $value;
+            }
+        }
+
+        return null;
+    }
+
     public static function enabled(): bool
+    {
+        return self::offReason() === null;
+    }
+
+    /**
+     * Why reporting is off, or null when it's on.
+     *
+     * PORRO_ENABLED wins when it's set. Left unset, only production reports,
+     * so a local or staging copy with the live .env never poses as the live
+     * site: CRAFT_ENVIRONMENT must be production (or unset) and devMode off.
+     */
+    public static function offReason(): ?string
     {
         // App::env() already turns "false", "0" and similar into booleans.
         $enabled = App::env('PORRO_ENABLED');
 
-        if ($enabled === null || is_bool($enabled)) {
-            return $enabled ?? true;
+        if ($enabled !== null && $enabled !== '') {
+            $on = is_bool($enabled) ? $enabled : ! in_array(strtolower((string) $enabled), ['0', 'false', 'off', 'no'], true);
+
+            return $on ? null : 'PORRO_ENABLED=false';
         }
 
-        return ! in_array(strtolower((string) $enabled), ['0', 'false', 'off', 'no'], true);
+        $environment = self::environment();
+
+        if ($environment !== null && ! in_array(strtolower($environment), ['production', 'prod', 'live'], true)) {
+            return "not production (CRAFT_ENVIRONMENT={$environment}). Set PORRO_ENABLED=true to report from here";
+        }
+
+        if (Craft::$app->getConfig()->getGeneral()->devMode) {
+            return 'devMode is on. Set PORRO_ENABLED=true to report from here';
+        }
+
+        return null;
     }
 }

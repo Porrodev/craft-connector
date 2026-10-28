@@ -93,7 +93,7 @@ Control panel reports are a backup, not a replacement for cron: a quiet site wit
 - A 3-second timeout, no retries, and every error swallowed.
 - One 15-minute throttle shared with cron, deploys and events, kept in Craft's cache. Load-balanced servers sharing a cache send one report between them.
 
-Event reports skip the throttle. `PORRO_ENABLED=false` turns off every kind of report.
+Event reports skip the throttle. When reporting is off (see [Config](#config)), every kind of report is.
 
 ## What leaves a site
 
@@ -144,7 +144,7 @@ Craft's own update check is Craft's, as usual. Requests go through Craft's Guzzl
 | Env | Default | |
 |---|---|---|
 | `PORRO_KEY` | | The site key |
-| `PORRO_ENABLED` | `true` | Turn reporting off, e.g. on staging |
+| `PORRO_ENABLED` | unset | `true` or `false` to force reporting on or off |
 | `PORRO_ACTIVITY` | production only | Record suspicious activity |
 | `PORRO_BLOCK_APP` | `true` | Turn blocked IPs away with a 403 |
 | `PORRO_PROTECT_FORGE` | `true` | Keep Laravel Forge's addresses unblockable. Not on Forge? Set `false` |
@@ -155,6 +155,8 @@ Craft's own update check is Craft's, as usual. Requests go through Craft's Guzzl
 | `PORRO_BLOCK_NGINX` | `false` | Write a deny file for nginx (production only) |
 | `PORRO_NGINX_PATH` | `storage/porro/nginx-blocklist.conf` | Where the deny file goes |
 | `PORRO_NGINX_REAL_IP` | on behind Cloudflare | Put Cloudflare's real IP lines in the deny file. Set `false` if your nginx config already sets `real_ip_header` |
+
+With `PORRO_ENABLED` unset, only production reports: `CRAFT_ENVIRONMENT` must be `production` (or `prod`, `live`, or unset) and devMode off. A local or staging copy running with the live `.env` stays quiet, so it can't overwrite the live site's state in Porro. Set `PORRO_ENABLED=true` to report from another environment on purpose. `php craft porro/status` shows whether reporting is on and why.
 
 The rest goes in `config/porro.php`:
 
