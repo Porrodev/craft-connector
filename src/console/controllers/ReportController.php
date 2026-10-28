@@ -45,6 +45,8 @@ class ReportController extends Controller
 
         if ($this->scheduled) {
             $reporter->beat();
+            // Blocking's housekeeping rides along: protected ranges, expired entries.
+            Plugin::getInstance()->getActivity()->maintain();
         }
 
         try {

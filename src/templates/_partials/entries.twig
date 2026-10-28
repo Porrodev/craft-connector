@@ -1,0 +1,28 @@
+{# Rows of the blocklist or safelist. #}
+{% if entries is empty %}
+    <p class="porro-note light">{{ empty }}</p>
+{% else %}
+    <table class="data fullwidth">
+        <tbody>
+            {% for entry in entries %}
+                <tr>
+                    <td class="porro-mono porro-nowrap">{{ entry.cidr }}</td>
+                    <td class="porro-anywhere">{{ entry.note }}</td>
+                    <td class="light porro-nowrap">{{ entry.source }}{% if entry.by %} · {{ entry.by }}{% endif %}</td>
+                    <td class="light porro-nowrap">{{ entry.expires }}</td>
+                    <td class="thin">
+                        {% if canManage and not entry.fromConfig %}
+                            <form method="post" accept-charset="UTF-8" class="porro-actions">
+                                {{ csrfInput() }}
+                                {{ actionInput(remove) }}
+                                {{ redirectInput(craft.app.request.url) }}
+                                {{ hiddenInput('ip', entry.cidr) }}
+                                <button type="submit" class="btn small">{{ 'Remove'|t('porro') }}</button>
+                            </form>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endif %}

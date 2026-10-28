@@ -65,11 +65,19 @@ class SiteHealth extends Component
     }
 
     /**
+     * Forgets the panel's last result, so the next view checks again.
+     */
+    public function forgetPanel(): void
+    {
+        Craft::$app->getCache()->delete(self::CACHE_KEY);
+    }
+
+    /**
      * Forgets everything the checks cached, so the next run asks again.
      */
     private function forget(): void
     {
-        $sources = $this->sources();
+        $sources = self::sources();
         $eol = new EndOfLife($sources);
         $eol->forget('php');
         $eol->forget('craft');
@@ -139,6 +147,7 @@ class SiteHealth extends Component
             'unavailable' => $health['unavailable'] ?? [],
             'checkedAgo' => $checkedAt ? ($checkedAt > time() - 60 ? Craft::t('porro', 'just now') : Craft::$app->getFormatter()->asRelativeTime($checkedAt)) : null,
             'commands' => $health['commands'] ?? ['connect' => 'php craft porro/connect <site key>'],
+            'suspicious' => is_array($health['activity']['flagged'] ?? null) ? count($health['activity']['flagged']) : 0,
         ];
     }
 
@@ -165,7 +174,7 @@ class SiteHealth extends Component
      */
     private function run(): array
     {
-        $health = new Checks($this->sources());
+        $health = new Checks(self::sources());
 
         $health->endOfLife(['php' => PHP_VERSION, 'craft' => Craft::$app->getVersion()]);
 
@@ -183,12 +192,39 @@ class SiteHealth extends Component
             $health->add($this->cron(), Craft::t('porro', 'cron'));
         }
 
+        $activity = $this->activity($health);
+
         return $health->toArray($this->key(), Plugin::url()) + [
+            'activity' => $activity,
             'commands' => [
                 'connect' => 'php craft porro/connect <site key>',
                 'cron' => 'php craft porro/cron',
             ],
         ];
+    }
+
+    /**
+     * Adds suspicious activity to the issues, and returns the Activity
+     * page's summary.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function activity(Checks $health): ?array
+    {
+        try {
+            $activity = Plugin::getInstance()->getActivity();
+            $summary = $activity->summary();
+
+            foreach ($activity->issues($summary) as $issue) {
+                $health->add($issue);
+            }
+
+            $health->add(null, Craft::t('porro', 'suspicious activity'));
+
+            return $activity->overview($summary);
+        } catch (Throwable) {
+            return null;
+        }
     }
 
     /**
@@ -252,14 +288,17 @@ class SiteHealth extends Component
         );
     }
 
-    private function sources(): Sources
+    /**
+     * Core's Sources on Craft's cache and HTTP client.
+     */
+    public static function sources(): Sources
     {
         $cache = Craft::$app->getCache();
 
         return new Sources(
             fn (string $key) => $cache->get($key),
             fn (string $key, mixed $value, int $ttl) => $cache->set($key, $value, $ttl),
-            $this->transport(),
+            self::transport(),
         );
     }
 
@@ -269,7 +308,7 @@ class SiteHealth extends Component
      *
      * @return Closure(string, string, array<string, string>, string|null, int, int): array{0: int, 1: string}
      */
-    private function transport(): Closure
+    public static function transport(): Closure
     {
         return function (string $method, string $url, array $headers, ?string $body, int $timeout, int $maxBytes = Sources::MAX_BYTES): array {
             try {

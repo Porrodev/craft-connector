@@ -1,0 +1,141 @@
+{% extends '_layouts/cp' %}
+
+{% set title = 'Blocking'|t('porro') %}
+{% set typed = craft.app.session.getFlash('porro-form') ?? {} %}
+
+{% block content %}
+    {% include 'porro/_partials/styles' %}
+    <div class="porro-page">
+        <p class="light porro-sub">{{ '{count} blocked'|t('porro', {count: blockCount}) }} · {{ '{count} safelisted'|t('porro', {count: safeCount}) }}</p>
+
+        {% if failed %}
+            <p class="error">{{ 'The blocklist tables aren’t there yet. Run php craft migrate/all on this site.'|t('porro') }}</p>
+        {% endif %}
+
+        <section class="porro-pane">
+            <div class="porro-pane-head"><span>{{ 'Where blocks are enforced'|t('porro') }}</span></div>
+            <div class="porro-row">
+                <div class="porro-grow">
+                    <strong>{{ 'In Craft'|t('porro') }}</strong>
+                    <span class="porro-chip {{ enforcing ? 'on' }}">{{ enforcing ? 'active'|t('porro') : 'off'|t('porro') }}</span>
+                    <div class="smalltext">{{ 'Blocked IPs get a 403 before Craft handles the request, on the front end and in the control panel. Turn off with PORRO_BLOCK_APP=false.'|t('porro') }}</div>
+                </div>
+            </div>
+            <div class="porro-row">
+                <div class="porro-grow">
+                    <strong>Cloudflare WAF</strong>
+                    <span class="porro-chip {{ cloudflare.connected and not cloudflare.error and cloudflare.synced ? 'on' : (cloudflare.error ? 'danger') }}">
+                        {%- if not cloudflare.configured %}{{ 'not set up'|t('porro') }}
+                        {%- elseif not cloudflare.connected %}{{ 'token set, not connected'|t('porro') }}
+                        {%- elseif cloudflare.error %}{{ 'sync failed'|t('porro') }}
+                        {%- elseif not cloudflare.production %}{{ 'production only'|t('porro') }}
+                        {%- elseif cloudflare.synced %}{{ 'synced {ago}'|t('porro', {ago: cloudflare.synced}) }}
+                        {%- else %}{{ 'waiting for the first sync'|t('porro') }}{% endif -%}
+                    </span>
+                    {% if cloudflare.connected %}
+                        <div class="smalltext">{{ 'Blocked at the edge, before traffic reaches the server · zone {zone} · list porro_blocklist'|t('porro', {zone: cloudflare.zone}) }}{% if cloudflare.result and cloudflare.result.shared %} · {{ '{count, plural, =1{# already blocked by another site} other{# already blocked by other sites}}'|t('porro', {count: cloudflare.result.shared}) }}{% endif %}</div>
+                    {% elseif cloudflare.configured %}
+                        <div class="smalltext">{{ 'Run this on the server to find the zone, create the porro_blocklist list and add the rule next to your existing ones:'|t('porro') }}</div>
+                        <pre class="porro-code"><code>php craft porro/cloudflare connect</code></pre>
+                    {% else %}
+                        <div class="smalltext">{{ 'Blocks at Cloudflare’s edge for sites behind it. Create a token with Account Filter Lists Edit, Zone WAF Edit and Zone Read, then:'|t('porro') }}</div>
+                        <pre class="porro-code"><code>PORRO_CLOUDFLARE_TOKEN=your-token-here
+php craft porro/cloudflare connect</code></pre>
+                    {% endif %}
+                    {% if cloudflare.error %}<div class="smalltext porro-critical">{{ cloudflare.error }}</div>{% endif %}
+                </div>
+            </div>
+            <div class="porro-row">
+                <div class="porro-grow">
+                    <strong>nginx</strong>
+                    <span class="porro-chip {{ nginx.on and nginx.servers and nginx.loaded == nginx.servers|length ? 'on' }}">
+                        {%- if not nginx.on %}{{ 'not set up'|t('porro') }}
+                        {%- elseif not nginx.production %}{{ 'production only'|t('porro') }}
+                        {%- elseif nginx.written %}{{ 'written {ago}'|t('porro', {ago: nginx.written}) }}
+                        {%- else %}{{ 'waiting for the first sync'|t('porro') }}{% endif -%}
+                    </span>
+                    {% if nginx.servers %}
+                        <div class="smalltext">{{ '{loaded} of {count} servers loaded'|t('porro', {loaded: nginx.loaded, count: nginx.servers|length}) }} · <a href="{{ cpUrl('porro/blocking/nginx') }}">{{ 'Setup and servers →'|t('porro') }}</a></div>
+                    {% else %}
+                        <div class="smalltext">{{ 'For sites not behind Cloudflare, or as well as it. A few one-time steps for the site and each server.'|t('porro') }} <a href="{{ cpUrl('porro/blocking/nginx') }}">{{ 'Set up nginx →'|t('porro') }}</a></div>
+                    {% endif %}
+                </div>
+            </div>
+        </section>
+
+        <section class="porro-pane">
+            <div class="porro-pane-head"><span>{{ 'Blocklist'|t('porro') }}</span><span>{{ blockCount|number }}</span></div>
+            {% if canManage %}
+                <form method="post" accept-charset="UTF-8" class="porro-form">
+                    {{ csrfInput() }}
+                    {{ actionInput('porro/blocking/block') }}
+                    {{ redirectInput(craft.app.request.url) }}
+                    <input type="text" class="text" name="ip" required value="{{ typed.reason is defined ? typed.ip }}" placeholder="{{ 'IP or range'|t('porro') }}" aria-label="{{ 'IP or range'|t('porro') }}" style="flex: 0 1 16rem">
+                    <input type="text" class="text" name="reason" value="{{ typed.reason ?? '' }}" placeholder="{{ 'Reason'|t('porro') }}" aria-label="{{ 'Reason'|t('porro') }}" style="flex: 1 1 10rem">
+                    <div class="select">
+                        <select name="days" aria-label="{{ 'Expires'|t('porro') }}">
+                            <option value="7">{{ '7 days'|t('porro') }}</option>
+                            <option value="30">{{ '30 days'|t('porro') }}</option>
+                            <option value="0">{{ 'Never'|t('porro') }}</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn submit">{{ 'Block'|t('porro') }}</button>
+                </form>
+            {% endif %}
+            {% include 'porro/_partials/entries' with {entries: blocks, remove: 'porro/blocking/unblock', empty: 'Nothing is blocked.'|t('porro')} %}
+            {% if blockCount > blocks|length %}
+                <div class="porro-row"><a href="{{ cpUrl('porro/blocking/blocklist') }}">{{ 'Show all {count}, with search →'|t('porro', {count: blockCount|number}) }}</a></div>
+            {% elseif blockCount > 0 %}
+                <div class="porro-row"><a class="light smalltext" href="{{ cpUrl('porro/blocking/blocklist') }}">{{ 'Search the blocklist →'|t('porro') }}</a></div>
+            {% endif %}
+        </section>
+
+        <section class="porro-pane" id="safelist">
+            <div class="porro-pane-head"><span>{{ 'Safelist'|t('porro') }}</span><span>{{ 'never blocked or flagged'|t('porro') }}</span></div>
+            {% if canManage %}
+                <form method="post" accept-charset="UTF-8" class="porro-form">
+                    {{ csrfInput() }}
+                    {{ actionInput('porro/blocking/safelist') }}
+                    {{ redirectInput(cpUrl('porro/blocking') ~ '#safelist') }}
+                    <input type="text" class="text" name="ip" required value="{{ typed.label is defined ? typed.ip : prefill }}" placeholder="{{ 'IP or range'|t('porro') }}" aria-label="{{ 'IP or range'|t('porro') }}" style="flex: 0 1 16rem">
+                    <input type="text" class="text" name="label" required value="{{ typed.label ?? '' }}" placeholder="{{ 'Label, e.g. 1994 office'|t('porro') }}" aria-label="{{ 'Label'|t('porro') }}" style="flex: 1 1 10rem">
+                    <label class="light smalltext" style="display: inline-flex; align-items: center; gap: 6px"><input type="checkbox" name="confirmWide" value="1"> {{ 'Wide range is OK'|t('porro') }}</label>
+                    <button type="submit" class="btn submit">{{ 'Add'|t('porro') }}</button>
+                </form>
+            {% endif %}
+            {% include 'porro/_partials/entries' with {entries: safe, remove: 'porro/blocking/unsafelist', empty: 'Nothing is safelisted.'|t('porro')} %}
+            {% if safeCount > safe|length %}
+                <div class="porro-row"><a href="{{ cpUrl('porro/blocking/safelist') }}">{{ 'Show all {count}, with search →'|t('porro', {count: safeCount|number}) }}</a></div>
+            {% endif %}
+        </section>
+
+        <section class="porro-pane">
+            <div class="porro-pane-head"><span>{{ 'Always protected'|t('porro') }}</span><span>{{ 'can’t be blocked'|t('porro') }}</span></div>
+            <p class="porro-note smalltext">{{ 'Addresses that have to reach this site. Blocks that overlap these are refused, and removed if a list changes. Open one to see its addresses and why.'|t('porro') }}</p>
+            {% for row in protected %}
+                <details class="porro-protected">
+                    <summary class="porro-row">
+                        <span class="porro-grow">{{ row.label }}</span>
+                        {% if row.on %}
+                            <span class="light smalltext">{{ '{count, plural, =1{# range} other{# ranges}}'|t('porro', {count: row.count}) }}</span>
+                        {% else %}
+                            <span class="porro-chip">{{ 'Switched off'|t('porro') }}</span>
+                        {% endif %}
+                    </summary>
+                    <div class="porro-pane-body smalltext">
+                        <p>{{ row.why }}</p>
+                        {% if row.from %}
+                            <p class="light">{{ 'From'|t('porro') }}: {% for link in row.from %}<a href="{{ link.url }}" target="_blank" rel="noopener">{{ link.text }}</a>{% if not loop.last %} · {% endif %}{% endfor %}</p>
+                        {% endif %}
+                        {% if row.env %}
+                            <p class="light">{{ row.on ? 'Not needed here? Switch it off with {setting}.'|t('porro', {setting: row.env ~ '=false'}) : 'Switched off with {setting}. Remove it to protect these again.'|t('porro', {setting: row.env ~ '=false'}) }}</p>
+                        {% endif %}
+                        {% if row.ranges %}
+                            <div class="porro-ranges">{% for range in row.ranges %}<span>{{ range }}</span>{% endfor %}</div>
+                        {% endif %}
+                    </div>
+                </details>
+            {% endfor %}
+        </section>
+    </div>
+{% endblock %}
