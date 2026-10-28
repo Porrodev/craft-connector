@@ -39,7 +39,11 @@ Results are cached for five minutes, and the public data behind them for between
 
 ## Suspicious activity and blocking
 
+![Porro → Activity in the Craft control panel: the suspicious activity summary and the IPs worth a look, each with Block 7 days, Block permanently and Safelist buttons](docs/images/craft-activity.png)
+
 **Activity** lists the IPs worth a look from the last 24 hours, worst first: probes for secrets and admin tools (`/.env`, `/.git/config`, `wp-login.php`, `phpmyadmin`…), failed control panel sign-ins, bursts of 404s and form floods. Each IP opens to its details: country, network, a reverse DNS name checked both ways, the Tor exit and Spamhaus DROP lists, and a plain note when something claiming to be Googlebot or Bingbot isn't. What it did here is drawn hour by hour, with its last requests.
+
+![IP details in the Craft control panel: an address pretending to be Googlebot, caught by its hostname, with buttons to block or safelist it](docs/images/craft-ip-details.png)
 
 From there, or from **Blocking**, an IP or a range can be blocked for 7 days, 30 days or for good. Every block and safelist asks first, saying what will happen to whom. Blocked IPs get a plain 403 before Craft handles the request, on the front end and in the control panel, and can be turned away earlier too:
 
@@ -47,6 +51,8 @@ From there, or from **Blocking**, an IP or a range can be blocked for 7 days, 30
 - **In nginx**, before PHP runs: Blocking → Set up nginx walks through it. `PORRO_BLOCK_NGINX=true`, a cron line running `porro/blocklist` every minute on each server, one `include` in the site's nginx config, and a root job that reloads nginx when the file changes and `nginx -t` passes. The page shows how far each server has got.
 
 The blocklist and safelist are tables, so every server of a site shares them, and their own pages search by IP (an IP finds the ranges that cover it), reason or who added it, 50 a page.
+
+![Porro → Blocking in the Craft control panel: blocking in Craft, at Cloudflare and in nginx, above the blocklist](docs/images/craft-blocking.png)
 
 Some addresses can never be blocked: Cloudflare, Laravel Forge and its health checks, Google's and Bing's published crawler ranges, and private and reserved ranges. **Always protected** on the Blocking page lists each, with why and where the addresses come from. Blocks that overlap them are refused.
 
