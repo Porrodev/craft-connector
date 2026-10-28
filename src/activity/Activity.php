@@ -8,12 +8,14 @@ use craft\helpers\App;
 use craft\web\Request;
 use Porro\Core\Activity\AbuseIpdb;
 use Porro\Core\Activity\Blocklist;
+use Porro\Core\Activity\Buffer;
 use Porro\Core\Activity\Cidr;
 use Porro\Core\Activity\ClientIp;
 use Porro\Core\Activity\CloudflareError;
 use Porro\Core\Activity\Countries;
 use Porro\Core\Activity\Entry;
 use Porro\Core\Activity\FlaggedIp;
+use Porro\Core\Activity\IpActivity;
 use Porro\Core\Activity\IpDetails;
 use Porro\Core\Activity\IpSet;
 use Porro\Core\Activity\NginxBlocklist;
@@ -76,6 +78,12 @@ class Activity extends Component
     private ?ProtectedRanges $ranges = null;
 
     private ?Recorder $recorder = null;
+
+    /** One flush in this many suspicious requests, once the response has gone. */
+    public const FLUSH_ODDS = 50;
+
+    /** Something was buffered this request, so it may flush once it's over. */
+    private bool $buffered = false;
 
     private ?Probes $probes = null;
 
@@ -184,7 +192,72 @@ class Activity extends Component
             fn (string $ip) => $this->compiled()['safe']->has($ip),
             array_map('intval', (array) self::config('thresholds')),
             fn (array $keys) => $cache->multiGet($keys),
+            buffer: $this->buffer(),
+            lock: function (\Closure $work) {
+                // Flushes from other servers wait their turn, or skip this one.
+                $mutex = Craft::$app->getMutex();
+
+                if (! $mutex->acquire('porro-activity-flush', 0)) {
+                    return;
+                }
+
+                try {
+                    $work();
+                } finally {
+                    $mutex->release('porro-activity-flush');
+                }
+            },
         );
+    }
+
+    /**
+     * This server's buffer file: PORRO_ACTIVITY_BUFFER, or storage/runtime/porro.
+     * Set it to false to record every request straight away.
+     */
+    public function buffer(): ?Buffer
+    {
+        $path = App::env('PORRO_ACTIVITY_BUFFER');
+
+        if ($path === false || in_array(strtolower((string) $path), ['false', '0', 'off'], true)) {
+            return null;
+        }
+
+        return new Buffer(is_string($path) && $path !== '' ? $path : Craft::$app->getPath()->getRuntimePath().'/porro/activity.buf');
+    }
+
+    /**
+     * Records what this server's buffer holds. Pages that read activity
+     * call it first; with nothing waiting it's a lock and a stat.
+     */
+    public function flush(): void
+    {
+        $this->recorder()->flush();
+    }
+
+    /**
+     * Called once a request has buffered something: no cost to anyone else.
+     */
+    public function buffered(): void
+    {
+        $this->buffered = true;
+    }
+
+    /**
+     * Once the request is over: flush now and then, or when this server
+     * hasn't for a minute, so flags and alerts lag a minute at most.
+     */
+    public function flushIfDue(): void
+    {
+        if (! $this->buffered) {
+            return;
+        }
+
+        $this->buffered = false;
+        $odds = (int) (App::env('PORRO_ACTIVITY_FLUSH_ODDS') ?: self::FLUSH_ODDS);
+
+        if (random_int(1, max(1, $odds)) === 1 || $this->recorder()->flushDue()) {
+            $this->recorder()->flush();
+        }
     }
 
     public function probes(): Probes
@@ -371,6 +444,8 @@ class Activity extends Component
     public function maintain(): array
     {
         try {
+            $this->recorder()->flush();
+
             if (! self::tablesExist()) {
                 return [];
             }
@@ -472,7 +547,19 @@ class Activity extends Component
 
     public function summary(int $hours = 24): Summary
     {
+        $this->flush();
+
         return $this->recorder()->summary($hours);
+    }
+
+    /**
+     * Everything one IP did in the last 48 hours, buffered requests included.
+     */
+    public function history(string $ip): ?IpActivity
+    {
+        $this->flush();
+
+        return $this->recorder()->history($ip);
     }
 
     /**
