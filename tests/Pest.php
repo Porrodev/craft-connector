@@ -29,6 +29,19 @@ function craft(array $args, array $env = []): array
 }
 
 /**
+ * A port nothing is listening on. A random one could land on another test
+ * server's, and then requests would quietly go to the wrong site.
+ */
+function freePort(): int
+{
+    $socket = stream_socket_server('tcp://127.0.0.1:0');
+    $name = (string) stream_socket_get_name($socket, false);
+    fclose($socket);
+
+    return (int) substr($name, strrpos($name, ':') + 1);
+}
+
+/**
  * Starts the stand-in Porro once and returns its URL and a fresh site key.
  *
  * @return array{url: string, key: string, captures: string}
@@ -45,7 +58,7 @@ function porro(): array
     mkdir($captures);
     $seed = random_bytes(32);
     $public = sodium_crypto_sign_publickey(sodium_crypto_sign_seed_keypair($seed));
-    $port = 18000 + random_int(0, 999);
+    $port = freePort();
 
     $server = proc_open(
         [PHP_BINARY, '-S', "127.0.0.1:{$port}", __DIR__.'/support/porro.php'],
@@ -112,7 +125,7 @@ function site(bool $fpm = true, array $env = []): string
         return $sites[$id];
     }
 
-    $port = 19000 + random_int(0, 999);
+    $port = freePort();
     $router = $fpm ? __DIR__.'/support/fastcgi.php' : craftPath().'/web/index.php';
     $command = [PHP_BINARY, '-S', "127.0.0.1:{$port}", '-t', craftPath().'/web', $router];
     $server = proc_open($command, [1 => ['file', '/dev/null', 'w'], 2 => ['file', '/dev/null', 'w']], $pipes, craftPath(), [...getenv(), ...$env]);
