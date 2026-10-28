@@ -25,6 +25,7 @@ use Porro\Core\Activity\Recorder;
 use Porro\Core\Activity\Summary;
 use Porro\Core\Health\Issue;
 use Porro\Core\Health\Sources;
+use porro\craft\jobs\MaintainBlocklist;
 use porro\craft\jobs\SyncCloudflare;
 use porro\craft\services\SiteHealth;
 use Throwable;
@@ -356,7 +357,8 @@ class Activity extends Component
 
     /**
      * maintain(), at most once a day, for sites without cron: Porro's cron
-     * line only exists once a site is connected.
+     * line only exists once a site is connected. Queued, since it downloads
+     * lists and the country file, and the page that asked shouldn't wait.
      */
     public function maintainDaily(): void
     {
@@ -364,7 +366,7 @@ class Activity extends Component
 
         if (! $cache->get('porro:activity:maintained')) {
             $cache->set('porro:activity:maintained', true, 86400);
-            $this->maintain();
+            Craft::$app->getQueue()->push(new MaintainBlocklist);
         }
     }
 
