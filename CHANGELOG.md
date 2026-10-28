@@ -1,6 +1,6 @@
 # Release Notes for Porro Site Health
 
-## Unreleased
+## 0.3.4 - 2026-10-28
 
 - A suspicious request no longer touches the database. It appends one short line to `storage/runtime/porro/activity.buf` on its server, and the lines are recorded in batches: one read and one write per IP and hour, however big the flood. Requires `porro/php-core` 0.3.5.
 - The buffer is flushed now and then after a suspicious request, whenever a server hasn't flushed for a minute, before the Activity, IP and Site health pages read activity, and by the 15-minute report and `porro/blocklist`. `php craft porro/activity/flush` flushes on demand, or every minute from cron. Flags and the exposed-file alert can lag a little. Blocking is unchanged.
