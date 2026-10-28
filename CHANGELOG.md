@@ -1,5 +1,10 @@
 # Release Notes for Porro Site Health
 
+## 0.3.1 - 2026-10-28
+
+- The plugin's description, on Packagist and in the Plugin Store, covers suspicious activity and IP blocking as well as site health.
+- The README shows Activity, IP details and Blocking, with screenshots.
+
 ## 0.3.0 - 2026-10-28
 
 - Reporting now defaults to off outside production (`CRAFT_ENVIRONMENT` other than `production`, `prod` or `live`, or devMode on), so a local or staging copy with the live `.env` doesn't report as the live site. An explicit `PORRO_ENABLED=true` still reports from anywhere. `porro/status` and `porro/report` say why reporting is off.
