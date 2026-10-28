@@ -207,6 +207,20 @@ class Activity extends Component
     /**
      * The visitor's country when Cloudflare sent it: free, no lookup.
      */
+    public function viaCloudflare(Request $request): bool
+    {
+        return $this->ranges()->isCloudflare((string) $request->getRemoteIP());
+    }
+
+    /**
+     * Whether $ip was flagged in the last 48 hours, so its every request
+     * is counted for its page. Read with the blocklist: no extra lookup.
+     */
+    public function watching(string $ip): bool
+    {
+        return $this->compiled()['watch']->has($ip);
+    }
+
     public function country(Request $request): ?string
     {
         return ClientIp::country($this->peer($request), $request->getHeaders()->toArray(), $this->ranges());
@@ -583,7 +597,7 @@ class Activity extends Component
     }
 
     /**
-     * @return array{blocks: IpSet, safe: IpSet}
+     * @return array{blocks: IpSet, safe: IpSet, watch: IpSet}
      */
     private function compiled(): array
     {
@@ -600,11 +614,12 @@ class Activity extends Component
                 $data = [
                     'blocks' => array_map(fn (Entry $e) => [$e->cidr, $e->note], $list->blocks()),
                     'safe' => array_map(fn (Entry $e) => $e->cidr, $list->safe()),
+                    'watch' => $this->recorder()->watched(),
                 ];
                 $cache->set(self::COMPILED, $data, self::COMPILED_TTL);
             } catch (Throwable) {
                 // No tables yet, or no database: nothing is blocked.
-                $data = ['blocks' => [], 'safe' => []];
+                $data = ['blocks' => [], 'safe' => [], 'watch' => []];
             }
         }
 
@@ -614,7 +629,7 @@ class Activity extends Component
             $blocks->add(Cidr::tryParse((string) $cidr), (string) $note);
         }
 
-        return $this->compiled = ['blocks' => $blocks, 'safe' => IpSet::of($data['safe'] ?? [])];
+        return $this->compiled = ['blocks' => $blocks, 'safe' => IpSet::of($data['safe'] ?? []), 'watch' => IpSet::of($data['watch'] ?? [])];
     }
 
     /**

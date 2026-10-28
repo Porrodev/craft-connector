@@ -62,6 +62,7 @@ class WatchRequests
         }
 
         $this->blocked = true;
+        register_shutdown_function(fn () => $this->recordTurnedAway());
         $response = Craft::$app->getResponse();
         $response->setStatusCode(403);
         $response->format = $response::FORMAT_RAW;
@@ -112,29 +113,52 @@ class WatchRequests
 
             $request = Craft::$app->getRequest();
             $ip = $activity->clientIp($request);
-            $country = $activity->country($request);
             $method = $request->getMethod();
             $path = self::path();
             $status = (int) (http_response_code() ?: Craft::$app->getResponse()->getStatusCode());
             $recorder = $activity->recorder();
             $category = $activity->probes()->match($path);
+            $more = [
+                'country' => $activity->country($request),
+                'userAgent' => $request->getUserAgent(),
+                'host' => $request->getHostName(),
+                'proxied' => $activity->viaCloudflare($request),
+            ];
 
             if ($category !== null) {
-                $recorder->record($ip, Recorder::PROBE, $method, $path, $status, country: $country, userAgent: $request->getUserAgent());
+                $recorder->record($ip, Recorder::PROBE, $method, $path, $status, ...[...$more, 'category' => $category]);
 
                 if (Probes::exposes($category) && $status >= 200 && $status < 300) {
                     $recorder->exposed($ip, $path, $status);
                 }
+            } elseif ($status === 404) {
+                $recorder->record($ip, Recorder::NOT_FOUND, $method, $path, $status, ...$more);
+            } elseif ($method === 'POST' && ! $this->failedLogin && ! $this->signedIn()) {
+                // People using the control panel post all day; a flood comes from outside.
+                $recorder->record($ip, Recorder::POST_FLOOD, $method, $path, $status, ...$more);
+            } elseif (! $this->failedLogin && $activity->watching($ip)) {
+                // Flagged already: count the rest, so its page shows them all.
+                $recorder->seen($ip, $method, $path, $status, $more['host'], $more['userAgent'], $more['proxied']);
+            }
+        } catch (Throwable) {
+            //
+        }
+    }
 
+    /**
+     * After a block's 403 has gone: counted for the IP's page.
+     */
+    private function recordTurnedAway(): void
+    {
+        try {
+            $activity = $this->activity();
+
+            if (! $activity || ! $activity->recording()) {
                 return;
             }
 
-            if ($status === 404) {
-                $recorder->record($ip, Recorder::NOT_FOUND, $method, $path, $status, country: $country, userAgent: $request->getUserAgent());
-            } elseif ($method === 'POST' && ! $this->failedLogin && ! $this->signedIn()) {
-                // People using the control panel post all day; a flood comes from outside.
-                $recorder->record($ip, Recorder::POST_FLOOD, $method, $path, $status, country: $country, userAgent: $request->getUserAgent());
-            }
+            $request = Craft::$app->getRequest();
+            $activity->recorder()->turnedAway($activity->clientIp($request), $request->getMethod(), self::path(), $request->getHostName(), $request->getUserAgent(), $activity->viaCloudflare($request));
         } catch (Throwable) {
             //
         }

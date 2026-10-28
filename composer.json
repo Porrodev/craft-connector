@@ -27,7 +27,7 @@
     "require": {
         "php": "^8.2",
         "craftcms/cms": "^4.0|^5.0",
-        "porro/php-core": "^0.3.1"
+        "porro/php-core": "^0.3.4"
     },
     "require-dev": {
         "pestphp/pest": "^3.0|^4.0",
