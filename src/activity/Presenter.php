@@ -235,7 +235,7 @@ class Presenter
         // Seen through Cloudflare: remember it, so the deny file carries the
         // real IP lines without anyone having to set anything.
         if ($remoteAddr !== null && $ranges->isCloudflare($remoteAddr)) {
-            Craft::$app->getCache()->set(Activity::BEHIND_CLOUDFLARE, true, 0);
+            Activity::store()->set(Activity::BEHIND_CLOUDFLARE, true, 0);
         }
 
         $servers = $nginx['servers'];
@@ -245,7 +245,7 @@ class Presenter
             'nginx' => $nginx,
             'behindCloudflare' => $blocking['cloudflare']['configured'] || ($remoteAddr !== null && $ranges->isCloudflare($remoteAddr)),
             'realIpInFile' => $this->activity->nginxRealIp(),
-            'sharedCache' => ! (Craft::$app->getCache() instanceof FileCache),
+            'sharedCache' => ! (Activity::store() instanceof FileCache),
             'example' => self::nginxExample($nginx['include']),
             'progress' => [
                 'servers' => count($servers),

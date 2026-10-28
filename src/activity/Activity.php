@@ -30,6 +30,8 @@ use porro\craft\jobs\SyncCloudflare;
 use porro\craft\services\SiteHealth;
 use Throwable;
 use yii\base\Component;
+use yii\caching\CacheInterface;
+use yii\caching\DbCache;
 
 /**
  * Suspicious activity and blocking for this site, on core's Activity.
@@ -48,6 +50,14 @@ class Activity extends Component
     public const COMPILED = 'porro:blocklist:compiled';
 
     public const COMPILED_TTL = 300;
+
+    /** Porro's own cache table, which Craft's clear-caches leaves alone. */
+    public const CACHE_TABLE = '{{%porro_cache}}';
+
+    /** Kept across deploys, so copied over from Craft's cache once. */
+    private const CARRIED = [CloudflareMode::STATE, NginxServers::KEY, self::BEHIND_CLOUDFLARE];
+
+    private static ?DbCache $store = null;
 
     public const BLOCKLIST_TABLE = '{{%porro_blocklist}}';
 
@@ -138,9 +148,29 @@ class Activity extends Component
         );
     }
 
+    /**
+     * Where activity, the Cloudflare connection and nginx check-ins live:
+     * Porro's own table. Until its migration has run, Craft's cache, so
+     * recording never fails on a missing table.
+     */
+    public static function store(): CacheInterface
+    {
+        if (self::$store !== null) {
+            return self::$store;
+        }
+
+        $cache = Craft::$app->getCache();
+
+        if (! $cache->getOrSet('porro:cache:ready', fn () => (int) Craft::$app->getDb()->tableExists(self::CACHE_TABLE), 600)) {
+            return $cache;
+        }
+
+        return self::$store = new DbCache(['db' => Craft::$app->getDb(), 'cacheTable' => self::CACHE_TABLE]);
+    }
+
     public function recorder(): Recorder
     {
-        $cache = Craft::$app->getCache();
+        $cache = self::store();
 
         return $this->recorder ??= new Recorder(
             fn (string $key) => $cache->get($key) ?: null,
@@ -264,7 +294,7 @@ class Activity extends Component
      */
     public function nginxRealIp(): bool
     {
-        return self::flag('PORRO_NGINX_REAL_IP') ?? ($this->cloudflare()->configured() || (bool) Craft::$app->getCache()->get(self::BEHIND_CLOUDFLARE));
+        return self::flag('PORRO_NGINX_REAL_IP') ?? ($this->cloudflare()->configured() || (bool) self::store()->get(self::BEHIND_CLOUDFLARE));
     }
 
     /**
@@ -339,6 +369,7 @@ class Activity extends Component
             }
 
             $this->forgetCompiled();
+            $this->tidyStore();
             $this->cloudflare()->sync();
 
             // A few checks a day at most, so a failed download isn't retried every run.
@@ -352,6 +383,34 @@ class Activity extends Component
             return $removed;
         } catch (Throwable) {
             return [];
+        }
+    }
+
+    /**
+     * Porro's table keeps expired rows until something reads them, so
+     * clear them hourly: activity is kept 48 hours, not until the next
+     * visit. Also carries state saved in Craft's cache by older versions
+     * across, once.
+     */
+    private function tidyStore(): void
+    {
+        $store = self::store();
+        $cache = Craft::$app->getCache();
+
+        if (! $store instanceof DbCache) {
+            return;
+        }
+
+        foreach (self::CARRIED as $key) {
+            if (($value = $cache->get($key)) !== false && $store->get($key) === false) {
+                $store->set($key, $value, 0);
+                $cache->delete($key);
+            }
+        }
+
+        if (! $cache->get('porro:cache:pruned')) {
+            $cache->set('porro:cache:pruned', true, 3600);
+            $store->gc(true);
         }
     }
 

@@ -1,5 +1,10 @@
 # Release Notes for Porro Site Health
 
+## Unreleased
+
+- Suspicious activity, the Cloudflare connection and nginx check-ins now live in Porro's own `porro_cache` table, so `php craft clear-caches/all` on deploy no longer wipes the Activity page and its 48 hours of history. Run `php craft migrate/all` (or apply the update in the control panel). Until then, Craft's cache is used as before.
+- Expired activity rows are cleared hourly by the housekeeping job, and state saved in Craft's cache by earlier versions is carried across once.
+
 ## 0.3.2 - 2026-10-28
 
 - On zero-downtime deploys (Forge, Envoyer, Deployer), the nginx deny file and the setup page's example config now use a path that outlives the release: shared storage's real path, or the `current` symlink. A path inside `releases/{id}` went stale after the next deploy, and `nginx -t` failed once that release was cleaned up. If your nginx config includes a `releases/…` path, change it to the one the setup page now shows.

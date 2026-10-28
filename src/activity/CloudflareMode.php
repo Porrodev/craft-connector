@@ -63,7 +63,7 @@ class CloudflareMode
      */
     public function state(): ?array
     {
-        $state = Craft::$app->getCache()->get(self::STATE);
+        $state = Activity::store()->get(self::STATE);
 
         return is_array($state) ? $state : null;
     }
@@ -133,7 +133,7 @@ class CloudflareMode
             $this->client()->disconnect($connection, $this->siteId());
         }
 
-        Craft::$app->getCache()->delete(self::STATE);
+        Activity::store()->delete(self::STATE);
     }
 
     /**
@@ -168,7 +168,7 @@ class CloudflareMode
      */
     private function remember(array $changes): void
     {
-        Craft::$app->getCache()->set(self::STATE, array_merge($this->state() ?? [], $changes), 0);
+        Activity::store()->set(self::STATE, array_merge($this->state() ?? [], $changes), 0);
     }
 
     private function token(): string
