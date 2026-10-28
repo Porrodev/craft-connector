@@ -48,6 +48,8 @@ it('sums up what an IP did, and counts a flagged IP’s other requests and those
     foreach (['/containers/json', '/images/json', '/.env'] as $path) {
         asVisitor("{$site}{$path}", '45.83.64.11');
     }
+    // The flag lands with the next flush, then the watch list.
+    blocking('flush');
     craft(['cache/flush-all']);
     asVisitor("{$site}/", '45.83.64.11');
     blocking('block', '45.83.64.11');

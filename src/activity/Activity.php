@@ -8,12 +8,14 @@ use craft\helpers\App;
 use craft\web\Request;
 use Porro\Core\Activity\AbuseIpdb;
 use Porro\Core\Activity\Blocklist;
+use Porro\Core\Activity\Buffer;
 use Porro\Core\Activity\Cidr;
 use Porro\Core\Activity\ClientIp;
 use Porro\Core\Activity\CloudflareError;
 use Porro\Core\Activity\Countries;
 use Porro\Core\Activity\Entry;
 use Porro\Core\Activity\FlaggedIp;
+use Porro\Core\Activity\IpActivity;
 use Porro\Core\Activity\IpDetails;
 use Porro\Core\Activity\IpSet;
 use Porro\Core\Activity\NginxBlocklist;
@@ -76,6 +78,12 @@ class Activity extends Component
     private ?ProtectedRanges $ranges = null;
 
     private ?Recorder $recorder = null;
+
+    /** One flush in this many suspicious requests, once the response has gone. */
+    public const FLUSH_ODDS = 50;
+
+    /** Something was buffered this request, so it may flush once it's over. */
+    private bool $buffered = false;
 
     private ?Probes $probes = null;
 
@@ -184,7 +192,114 @@ class Activity extends Component
             fn (string $ip) => $this->compiled()['safe']->has($ip),
             array_map('intval', (array) self::config('thresholds')),
             fn (array $keys) => $cache->multiGet($keys),
+            buffer: $this->buffer(),
+            lock: function (\Closure $work) {
+                // Taken by another server's flush: false, so this one stays due.
+                $mutex = Craft::$app->getMutex();
+
+                if (! $mutex->acquire('porro-activity-flush', 0)) {
+                    return false;
+                }
+
+                try {
+                    return $work();
+                } finally {
+                    $mutex->release('porro-activity-flush');
+                }
+            },
         );
+    }
+
+    /**
+     * This server's buffer file: PORRO_ACTIVITY_BUFFER, or storage/runtime/porro.
+     * Set it to false to record every request straight away. Off on
+     * Lambda, whose storage goes with each container.
+     */
+    public function buffer(): ?Buffer
+    {
+        $path = App::env('PORRO_ACTIVITY_BUFFER');
+
+        if ($path === false || in_array(strtolower((string) $path), ['false', '0', 'off'], true) || getenv('AWS_LAMBDA_FUNCTION_NAME') !== false) {
+            return null;
+        }
+
+        return new Buffer(is_string($path) && $path !== '' ? $path : self::bufferPath());
+    }
+
+    private static function bufferPath(): string
+    {
+        return Craft::$app->getPath()->getRuntimePath().'/porro/activity.buf';
+    }
+
+    /**
+     * Records what's waiting, or with batching off, deletes what an
+     * earlier setting left, so no raw IP stays on disk past 48 hours.
+     */
+    private function flushOrClear(): void
+    {
+        if ($this->buffer() === null) {
+            (new Buffer(self::bufferPath()))->clear();
+
+            return;
+        }
+
+        $this->recorder()->flush();
+    }
+
+    /**
+     * Records what this server's buffer holds. Pages that read activity
+     * call it first; with nothing waiting it's a lock and a stat.
+     */
+    public function flush(): void
+    {
+        $this->recorder()->flush();
+    }
+
+    /**
+     * Called once a request has buffered something: no cost to anyone else.
+     */
+    public function buffered(): void
+    {
+        $this->buffered = true;
+    }
+
+    /**
+     * Once the request is over: flush now and then, or when this server
+     * hasn't for a minute, so flags and alerts lag a minute at most.
+     */
+    public function flushIfDue(): void
+    {
+        if (! $this->buffered) {
+            return;
+        }
+
+        $this->buffered = false;
+        // The lottery still waits 5 seconds between flushes, so a flood
+        // can't turn batching back into a write per request.
+        $lottery = random_int(1, max(1, (int) (App::env('PORRO_ACTIVITY_FLUSH_ODDS') ?: self::FLUSH_ODDS))) === 1;
+
+        if ($this->recorder()->flushDue($lottery ? 5 : 60)) {
+            self::finishResponse();
+            $this->recorder()->flush();
+        }
+    }
+
+    /**
+     * Lets the visitor go before a flush: this runs at shutdown, and Craft
+     * only finishes the response early for its queue. Any output still
+     * buffered is sent first.
+     */
+    private static function finishResponse(): void
+    {
+        if (! function_exists('fastcgi_finish_request') || Craft::$app->getRequest()->getIsConsoleRequest()) {
+            return;
+        }
+
+        while (ob_get_level() > 0 && @ob_end_flush()) {
+            //
+        }
+
+        fastcgi_finish_request();
     }
 
     public function probes(): Probes
@@ -371,6 +486,8 @@ class Activity extends Component
     public function maintain(): array
     {
         try {
+            $this->flushOrClear();
+
             if (! self::tablesExist()) {
                 return [];
             }
@@ -472,7 +589,19 @@ class Activity extends Component
 
     public function summary(int $hours = 24): Summary
     {
+        $this->flush();
+
         return $this->recorder()->summary($hours);
+    }
+
+    /**
+     * Everything one IP did in the last 48 hours, buffered requests included.
+     */
+    public function history(string $ip): ?IpActivity
+    {
+        $this->flush();
+
+        return $this->recorder()->history($ip);
     }
 
     /**

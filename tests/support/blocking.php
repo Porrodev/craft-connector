@@ -7,7 +7,7 @@ use porro\craft\Plugin;
 /*
  * Sets up activity and blocking in the Craft install, without running a
  * request: `php blocking.php reset`, `block <cidr> [days]`,
- * `safelist <cidr> <label>`.
+ * `safelist <cidr> <label>`, `flush` (the buffer, as cron would).
  */
 
 [, $action] = $argv;
@@ -26,12 +26,16 @@ switch ($action) {
         // in Porro's own table, which clear-caches leaves alone.
         $app->getCache()->flush();
         Activity::store()->flush();
+        $activity->buffer()?->take();
         $app->getDb()->createCommand()->delete('{{%porro_blocklist}}')->execute();
         $app->getDb()->createCommand()->delete('{{%porro_safelist}}')->execute();
         break;
     case 'block':
         $days = (int) ($argv[3] ?? 0);
         $activity->blocklist()->block($argv[2], 'Set up by the tests', 'manual', $days ? time() + $days * 86400 : null, 'tests');
+        break;
+    case 'flush':
+        $activity->flush();
         break;
     case 'safelist':
         $activity->blocklist()->safelist($argv[2], $argv[3] ?? 'Tests', null, 'tests');

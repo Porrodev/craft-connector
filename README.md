@@ -58,6 +58,8 @@ Some addresses can never be blocked: Cloudflare, Laravel Forge and its health ch
 
 What's recorded stays on the site for 48 hours, in Porro's own `porro_cache` table, so `clear-caches` on deploy doesn't wipe it. Expired rows are cleared hourly; a database backup taken in those 48 hours will include them. Failed sign-in usernames are only kept as a keyed hash. Only production records unless you set `PORRO_ACTIVITY=true`, since a local copy's own traffic is noise; blocks apply everywhere.
 
+A suspicious request never writes to the database: it appends one short line to `storage/runtime/porro/activity.buf` on its server, and the lines are recorded in batches: now and then after a suspicious request, at least once a minute while they keep coming, whenever the Activity, IP or Site health page opens, and with the 15-minute report. For flags that never wait longer than a minute, add `* * * * * php craft porro/activity/flush` to each server's cron. Blocking is immediate. The file is capped at 2 MB, so a flood can't fill the disk. Where storage can't be written, each request is recorded straight away instead.
+
 **Behind a load balancer or proxy?** Set Craft's [`trustedHosts`](https://craftcms.com/docs/5.x/reference/config/general.html#trustedhosts) to its addresses (or `CRAFT_TRUSTED_HOSTS=10.0.0.5`). Craft's default trusts `X-Forwarded-For` from anyone, which would let a visitor choose their own address, so until `trustedHosts` names your proxies the plugin ignores forwarded headers and uses the address that connected. Behind Cloudflare nothing is needed: Cloudflare's header is believed only when the request really came from Cloudflare.
 
 ## Connect Porro (optional)
@@ -152,6 +154,7 @@ Craft's own update check is Craft's, as usual. Requests go through Craft's Guzzl
 | `PORRO_KEY` | | The site key |
 | `PORRO_ENABLED` | unset | `true` or `false` to force reporting on or off |
 | `PORRO_ACTIVITY` | production only | Record suspicious activity |
+| `PORRO_ACTIVITY_BUFFER` | `storage/runtime/porro/activity.buf` | Where this server keeps suspicious requests until they're recorded. `false` records each one straight away |
 | `PORRO_BLOCK_APP` | `true` | Turn blocked IPs away with a 403 |
 | `PORRO_PROTECT_FORGE` | `true` | Keep Laravel Forge's addresses unblockable. Not on Forge? Set `false` |
 | `PORRO_PROTECT_CRAWLERS` | `true` | Keep Google's and Bing's crawlers unblockable |

@@ -306,7 +306,7 @@ class Presenter
             }
         }
 
-        $history = $this->activity->recorder()->history($ip);
+        $history = $this->activity->history($ip);
         $details = $this->activity->details($ip, $flagged?->userAgent ?? ($history ? array_key_first($history->agents) : null));
         $crawler = $this->crawler($details);
         $badges = array_values(array_map(fn ($b) => (self::BADGES[$b] ?? ['label' => $b, 'tone' => 'neutral']) + ['key' => $b], $details['badges']));

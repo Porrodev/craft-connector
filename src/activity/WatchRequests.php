@@ -18,7 +18,8 @@ use yii\base\Event;
  *
  * Recording runs at shutdown rather than after the request: Craft's error
  * handler exits on a 404 before EVENT_AFTER_REQUEST, and a scanner's
- * requests are mostly 404s.
+ * requests are mostly 404s. Recording is a line in this server's buffer,
+ * flushed now and then.
  */
 class WatchRequests
 {
@@ -33,6 +34,9 @@ class WatchRequests
         }
 
         Craft::$app->on(Application::EVENT_BEFORE_REQUEST, function () {
+            // Per request, should a worker serve more than one.
+            $this->blocked = false;
+            $this->failedLogin = false;
             $this->turnAway();
 
             if (! $this->blocked) {
@@ -97,6 +101,7 @@ class WatchRequests
                 country: $activity->country($request),
                 userAgent: $request->getUserAgent(),
             );
+            $activity->buffered();
         } catch (Throwable) {
             //
         }
@@ -126,6 +131,8 @@ class WatchRequests
                 'proxied' => $activity->viaCloudflare($request),
             ];
 
+            $suspicious = true;
+
             if ($category !== null) {
                 $recorder->record($ip, Recorder::PROBE, $method, $path, $status, ...[...$more, 'category' => $category]);
 
@@ -140,10 +147,18 @@ class WatchRequests
             } elseif (! $this->failedLogin && $activity->watching($ip)) {
                 // Flagged already: count the rest, so its page shows them all.
                 $recorder->seen($ip, $method, $path, $status, $more['host'], $more['userAgent'], $more['proxied']);
+            } else {
+                $suspicious = false;
+            }
+
+            if ($suspicious) {
+                $activity->buffered();
             }
         } catch (Throwable) {
             //
         }
+
+        $this->flush();
 
         // Expired rows are cleared now and then even without cron, after
         // recording, so a failed tidy never costs an event.
@@ -170,6 +185,22 @@ class WatchRequests
 
             $request = Craft::$app->getRequest();
             $activity->recorder()->turnedAway($activity->clientIp($request), self::method(), self::path(), self::host(), $request->getUserAgent(), $activity->viaCloudflare($request));
+            $activity->buffered();
+        } catch (Throwable) {
+            //
+        }
+
+        $this->flush();
+    }
+
+    /**
+     * Records the buffer now and then, once this request has added to it:
+     * an ordinary page view never pays for it.
+     */
+    private function flush(): void
+    {
+        try {
+            $this->activity()?->flushIfDue();
         } catch (Throwable) {
             //
         }
