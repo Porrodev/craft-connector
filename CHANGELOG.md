@@ -1,7 +1,9 @@
 # Release Notes for Porro Site Health
 
-## Unreleased
+## 0.3.3 - 2026-10-28
 
+- **Porro → Blocking → Set up Cloudflare**: a setup page with three steps that tick themselves off. It lists the token's two permission policies as Cloudflare's dashboard names them (Zone WAF Rules: Edit and Zone: Read on the site's domain, Account Rule Lists: Edit on the account), the `.env` line with a copy button, and a **Connect to Cloudflare** button for users who can manage blocking. It says plainly that `porro_blocklist` is shared by every site on the Cloudflare account. The Blocking page's Cloudflare row now links to it.
+- Account-owned Cloudflare tokens work, through `porro/php-core` 0.3.2 and later.
 - Suspicious activity, the Cloudflare connection and nginx check-ins now live in Porro's own `porro_cache` table, so `php craft clear-caches/all` on deploy no longer wipes the Activity page and its 48 hours of history. Run `php craft migrate/all` (or apply the update in the control panel). Until then, Craft's cache is used as before.
 - Expired activity rows are cleared hourly by the housekeeping job, and state saved in Craft's cache by earlier versions is carried across once.
 - The IP details page sums up what an IP did over 48 hours, flagged or not:
