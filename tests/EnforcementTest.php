@@ -25,10 +25,21 @@ it('writes the nginx deny file from porro/blocklist', function () {
         ->and((string) file_get_contents($this->nginx))->toContain('deny 45.83.67.7;')->toContain('deny 194.26.29.0/24;');
 });
 
-it('writes nothing without nginx mode, or outside production', function () {
+it('writes nothing without nginx mode', function () {
     blocking('block', '45.83.67.7');
 
     craft(['porro/blocklist'], ['PORRO_NGINX_PATH' => $this->nginx]);
+
+    expect(is_file($this->nginx))->toBeFalse();
+});
+
+it('writes nothing outside production', function () {
+    if (getenv('CRAFT_MAJOR') === '4') {
+        $this->markTestSkipped('Craft 4’s starter project loads .env over the environment, so CRAFT_ENVIRONMENT can’t be changed per run.');
+    }
+
+    blocking('block', '45.83.67.7');
+
     [, $output] = craft(['porro/blocklist'], ['PORRO_BLOCK_NGINX' => 'true', 'PORRO_NGINX_PATH' => $this->nginx, 'CRAFT_ENVIRONMENT' => 'staging']);
 
     expect(is_file($this->nginx))->toBeFalse()
