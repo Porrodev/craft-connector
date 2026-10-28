@@ -1,5 +1,11 @@
 # Release Notes for Porro Site Health
 
+## 0.3.2 - 2026-10-28
+
+- On zero-downtime deploys (Forge, Envoyer, Deployer), the nginx deny file and the setup page's example config now use a path that outlives the release: shared storage's real path, or the `current` symlink. A path inside `releases/{id}` went stale after the next deploy, and `nginx -t` failed once that release was cleaned up. If your nginx config includes a `releases/…` path, change it to the one the setup page now shows.
+- The daily blocklist housekeeping on sites without Porro's cron line (protected lists, expired entries, the country file) runs from Craft's queue, so the first Activity or Blocking page of the day no longer waits on the downloads.
+- Requires `porro/php-core` 0.3.1.
+
 ## 0.3.1 - 2026-10-28
 
 - The plugin's description, on Packagist and in the Plugin Store, covers suspicious activity and IP blocking as well as site health.
