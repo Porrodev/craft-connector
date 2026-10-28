@@ -175,14 +175,15 @@ class Activity extends Component
         return $this->recorder ??= new Recorder(
             fn (string $key) => $cache->get($key) ?: null,
             fn (string $key, mixed $value, int $ttl) => $cache->set($key, $value, $ttl),
-            function (string $key, int $ttl) use ($cache) {
+            function (string $key, int $ttl, int $by = 1) use ($cache) {
                 // Craft's cache has no increment: close enough for counting.
-                $cache->set($key, ((int) $cache->get($key)) + 1, $ttl);
+                $cache->set($key, ((int) $cache->get($key)) + $by, $ttl);
             },
             $this->ranges(),
             (string) Craft::$app->getConfig()->getGeneral()->securityKey,
             fn (string $ip) => $this->compiled()['safe']->has($ip),
             array_map('intval', (array) self::config('thresholds')),
+            fn (array $keys) => $cache->multiGet($keys),
         );
     }
 
@@ -406,7 +407,7 @@ class Activity extends Component
      * visit. Also carries state saved in Craft's cache by older versions
      * across, once.
      */
-    private function tidyStore(): void
+    public function tidyStore(): void
     {
         $store = self::store();
         $cache = Craft::$app->getCache();

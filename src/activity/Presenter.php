@@ -491,7 +491,7 @@ class Presenter
             'first' => self::ago($ip->firstSeen),
             'direct' => $ip->direct > 0 && ($ip->viaCloudflare > 0 || $this->activity->cloudflare()->configured()),
             'summary' => array_filter([
-                $t('Requests') => number_format($ip->requests)
+                $t('Requests') => ($ip->estimated ? $t('about {n}', ['n' => number_format($ip->requests)]) : number_format($ip->requests))
                     .($ip->turnedAway ? ' · '.$t('{count, plural, =1{# turned away by the block} other{# turned away by the block}}', ['count' => $ip->turnedAway]) : '')
                     .($ip->flagged ? '' : ' · '.$t('not flagged')),
                 $t('Seen') => gmdate('j M H:i', $ip->firstSeen).' → '.gmdate('j M H:i', $ip->lastSeen),

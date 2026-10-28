@@ -90,7 +90,7 @@ class WatchRequests
             $activity->recorder()->record(
                 $activity->clientIp($request),
                 Recorder::LOGIN_FAILED,
-                $request->getMethod(),
+                self::method(),
                 self::path(),
                 401,
                 is_string($username) && $username !== '' ? $username : null,
@@ -113,15 +113,20 @@ class WatchRequests
 
             $request = Craft::$app->getRequest();
             $ip = $activity->clientIp($request);
-            $method = $request->getMethod();
+            $method = self::method();
             $path = self::path();
+
+            // Expired rows are cleared now and then even without cron.
+            if (random_int(1, 500) === 1) {
+                $activity->tidyStore();
+            }
             $status = (int) (http_response_code() ?: Craft::$app->getResponse()->getStatusCode());
             $recorder = $activity->recorder();
             $category = $activity->probes()->match($path);
             $more = [
                 'country' => $activity->country($request),
                 'userAgent' => $request->getUserAgent(),
-                'host' => $request->getHostName(),
+                'host' => self::host(),
                 'proxied' => $activity->viaCloudflare($request),
             ];
 
@@ -158,7 +163,7 @@ class WatchRequests
             }
 
             $request = Craft::$app->getRequest();
-            $activity->recorder()->turnedAway($activity->clientIp($request), $request->getMethod(), self::path(), $request->getHostName(), $request->getUserAgent(), $activity->viaCloudflare($request));
+            $activity->recorder()->turnedAway($activity->clientIp($request), self::method(), self::path(), self::host(), $request->getUserAgent(), $activity->viaCloudflare($request));
         } catch (Throwable) {
             //
         }
@@ -170,6 +175,27 @@ class WatchRequests
             return Craft::$app->getUser()->getIdentity(false) !== null;
         } catch (Throwable) {
             return false;
+        }
+    }
+
+    /**
+     * The method actually sent: Yii honours X-Http-Method-Override and
+     * _method, which would let a POST flood pass as a PUT.
+     */
+    private static function method(): string
+    {
+        return (string) ($_SERVER['REQUEST_METHOD'] ?? Craft::$app->getRequest()->getMethod());
+    }
+
+    /**
+     * The Host it asked for, or null if it can't be read.
+     */
+    private static function host(): ?string
+    {
+        try {
+            return Craft::$app->getRequest()->getHostName();
+        } catch (Throwable) {
+            return null;
         }
     }
 
