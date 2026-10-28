@@ -1,0 +1,117 @@
+{% extends '_layouts/cp' %}
+{% set title = ipInfo.ip %}
+{% set crumbs = [{label: 'Activity'|t('porro'), url: cpUrl('porro/activity')}] %}
+
+{% block content %}
+    {% include 'porro/_partials/styles' %}
+    <div class="porro-page">
+        <div>
+            <p class="light porro-sub">
+                {{ ipInfo.country.label ?? 'Country unknown'|t('porro') }}
+                {%- if ipInfo.activity and ipInfo.activity.first %} · {{ 'first seen here {ago}'|t('porro', {ago: ipInfo.activity.first}) }}{% endif %}
+                {%- if ipInfo.blocked %} · <span class="porro-critical">{{ 'blocked'|t('porro') }}</span>{% endif %}
+                {%- if ipInfo.safelisted %} · {{ 'safelisted'|t('porro') }}{% endif %}
+                {%- if ipInfo.protected %} · {{ 'always protected: {list}'|t('porro', {list: ipInfo.protected}) }}{% endif %}
+            </p>
+            {% if ipInfo.badges %}
+                <p style="margin: 8px 0 0">{% for badge in ipInfo.badges %}<span class="porro-chip {{ badge.tone }}">{{ badge.label }}</span>{% endfor %}</p>
+            {% endif %}
+        </div>
+
+        {% if ipInfo.crawler %}
+            <div class="porro-callout {{ ipInfo.crawler.real ? 'ok' }}" role="note"><strong>{{ ipInfo.crawler.title }}.</strong> {{ ipInfo.crawler.body }}</div>
+        {% endif %}
+
+        {% if canManage and not ipInfo.blocked and not ipInfo.safelisted and not ipInfo.protected %}
+            <div class="porro-actions" style="justify-content: flex-start">
+                {% set targets = [
+                    {label: 'Block permanently'|t('porro'), days: 0, target: ipInfo.ip, class: 'submit'},
+                    {label: 'Block 7 days'|t('porro'), days: 7, target: ipInfo.ip, class: ''},
+                ] %}
+                {% if ipInfo.range %}
+                    {% set targets = targets|merge([{label: 'Block {range}'|t('porro', {range: ipInfo.range}), days: 7, target: ipInfo.range, class: ''}]) %}
+                {% endif %}
+                {% for t in targets %}
+                    <form method="post" accept-charset="UTF-8" data-porro-confirm="{{ craft.porro.confirmBlock(t.target, t.days)|json_encode }}">
+                        {{ csrfInput() }}
+                        {{ actionInput('porro/blocking/block') }}
+                        {{ redirectInput(craft.app.request.url) }}
+                        {{ hiddenInput('ip', t.target) }}
+                        {{ hiddenInput('reason', ipInfo.reason) }}
+                        {{ hiddenInput('days', t.days) }}
+                        {% if t.days %}{{ hiddenInput('suggested', 1) }}{% endif %}
+                        <button type="submit" class="btn {{ t.class }}">{{ t.label }}</button>
+                    </form>
+                {% endfor %}
+                <form method="post" accept-charset="UTF-8" data-porro-confirm="{{ craft.porro.confirmSafelist(ipInfo.ip)|json_encode }}">
+                    {{ csrfInput() }}
+                    {{ actionInput('porro/blocking/safelist') }}
+                    {{ redirectInput(craft.app.request.url) }}
+                    {{ hiddenInput('ip', ipInfo.ip) }}
+                    {{ hiddenInput('label', 'From the IP details page'|t('porro')) }}
+                    <button type="submit" class="btn">{{ 'Safelist'|t('porro') }}</button>
+                </form>
+            </div>
+        {% endif %}
+
+        <section class="porro-pane">
+            <div class="porro-pane-head"><span>{{ 'Network'|t('porro') }}</span></div>
+            {% for row in ipInfo.network %}
+                <dl class="porro-kv"><dt>{{ row.label }}</dt><dd class="{{ row.mono ? 'porro-mono' }}">{{ row.value }}</dd></dl>
+            {% else %}
+                <p class="porro-note light">{{ 'Nothing more is known about this network.'|t('porro') }}</p>
+            {% endfor %}
+        </section>
+
+        <section class="porro-pane">
+            <div class="porro-pane-head"><span>{{ 'What it did here'|t('porro') }}</span><span>{{ 'signals per hour · last 48 h'|t('porro') }}</span></div>
+            {% if ipInfo.activity %}
+                <div class="porro-bars" aria-hidden="true">
+                    {% for hour in ipInfo.activity.hours %}<span class="{{ hour.tone }}" style="height: {{ hour.height }}px"></span>{% endfor %}
+                </div>
+                <div class="porro-row light smalltext" style="border: 0; padding-top: 4px"><span class="porro-grow">{{ '48 h ago'|t('porro') }}</span><span>{{ 'now'|t('porro') }}</span></div>
+                <table class="data fullwidth">
+                    <tbody>
+                        {% for r in ipInfo.activity.requests %}
+                            <tr class="porro-mono">
+                                <td class="light thin">{{ r.method }}</td>
+                                <td class="porro-anywhere">{{ r.path }}</td>
+                                <td class="thin {{ r.exposed ? 'porro-critical' : 'light' }}">{{ r.status ?: '—' }}</td>
+                                <td class="thin light">{{ r.time }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p class="porro-note light">{{ 'Nothing flagged from this IP in the last 48 hours.'|t('porro') }}</p>
+            {% endif %}
+        </section>
+
+        <section class="porro-pane">
+            <div class="porro-pane-head"><span>{{ 'Reputation'|t('porro') }}</span><span>AbuseIPDB</span></div>
+            {% if ipInfo.reputation %}
+                <dl class="porro-kv"><dt>{{ 'Abuse confidence'|t('porro') }}</dt><dd class="{{ ipInfo.reputation.score >= 50 ? 'porro-critical' }}">{{ ipInfo.reputation.score }}%</dd></dl>
+                <dl class="porro-kv"><dt>{{ 'Reports'|t('porro') }}</dt><dd>{{ ipInfo.reputation.reports|number }}{% if ipInfo.reputation.lastAgo %} · {{ 'last {ago}'|t('porro', {ago: ipInfo.reputation.lastAgo}) }}{% endif %}</dd></dl>
+                {% if ipInfo.reputation.isp %}<dl class="porro-kv"><dt>{{ 'ISP'|t('porro') }}</dt><dd>{{ ipInfo.reputation.isp }}{% if ipInfo.reputation.usage %} · {{ ipInfo.reputation.usage }}{% endif %}</dd></dl>{% endif %}
+            {% elseif ipInfo.canCheckReputation and canManage %}
+                <div class="porro-pane-body">
+                    <form method="post" accept-charset="UTF-8" style="display: inline">
+                        {{ csrfInput() }}
+                        {{ actionInput('porro/activity/reputation') }}
+                        {{ hiddenInput('ip', ipInfo.ip) }}
+                        <button type="submit" class="btn">{{ 'Check on AbuseIPDB'|t('porro') }}</button>
+                    </form>
+                    <span class="light smalltext">{{ 'Sends this IP to AbuseIPDB.'|t('porro') }}</span>
+                </div>
+            {% else %}
+                <p class="porro-note light smalltext">{{ 'Not checked. Set PORRO_ABUSEIPDB_KEY to check an IP’s reputation on request (it sends the IP to AbuseIPDB).'|t('porro') }}</p>
+            {% endif %}
+        </section>
+
+        <p class="light smalltext">
+            {{ 'Sources'|t('porro') }}: {{ ipInfo.sources|join(' · ') }} · {{ ipInfo.fetched }}
+            {% if ipInfo.attribution %} · <a href="{{ ipInfo.attribution.url }}" target="_blank" rel="noopener">{{ ipInfo.attribution.text }}</a>{% endif %}
+        </p>
+    </div>
+    {% include 'porro/_partials/confirm' %}
+{% endblock %}

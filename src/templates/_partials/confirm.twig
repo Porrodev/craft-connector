@@ -1,0 +1,15 @@
+{# The dialog behind every block and safelist button (data-porro-confirm). #}
+<dialog id="porro-confirm" class="porro-confirm" aria-labelledby="porro-confirm-title">
+    <form method="dialog">
+        <div class="body">
+            <h2 id="porro-confirm-title" data-porro-title></h2>
+            <p data-porro-body></p>
+        </div>
+        <div class="footer">
+            <button class="btn" value="cancel" data-porro-cancel>{{ 'Cancel'|t('porro') }}</button>
+            <button class="btn porro-danger" value="ok" data-porro-ok="danger"></button>
+            <button class="btn submit" value="ok" data-porro-ok="safe" hidden style="display: none"></button>
+        </div>
+    </form>
+</dialog>
+{% js %}{{ craft.porro.confirmScript()|raw }}{% endjs %}

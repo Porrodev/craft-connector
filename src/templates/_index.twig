@@ -48,6 +48,9 @@
         {% else %}
             {{ health.issues(local) }}
         {% endif %}
+        {% if suspicious ?? 0 %}
+            <p><a href="{{ cpUrl('porro/activity') }}" class="go">{{ '{count, plural, =1{# IP looks suspicious} other{# IPs look suspicious}}'|t('porro', {count: suspicious}) }}</a></p>
+        {% endif %}
 
         <div class="porro-health-notes light smalltext">
             {% if checked is not empty %}

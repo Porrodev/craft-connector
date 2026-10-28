@@ -1,0 +1,95 @@
+{% extends '_layouts/cp' %}
+{% set title = 'Activity'|t('porro') %}
+
+{% block content %}
+    {% include 'porro/_partials/styles' %}
+    <div class="porro-page">
+        {% if not activity %}
+            <p>{{ 'Activity couldn’t be read just now. The error is in the Craft log.'|t('porro') }}</p>
+        {% else %}
+            <p class="light porro-sub">{{ 'Probes, failed logins, 404 bursts and form floods · last {hours} hours · kept on this site, never sent anywhere'|t('porro', {hours: activity.hours}) }}</p>
+
+            {% if not activity.recording %}
+                <div class="readable"><p class="notice has-icon"><span class="icon" aria-hidden="true"></span><span>{{ 'Not recording on this copy of the site: activity is only recorded in production. Set PORRO_ACTIVITY=true to record here.'|t('porro') }}</span></p></div>
+            {% endif %}
+
+            <section class="porro-pane">
+                <div class="porro-pane-head"><span>{{ 'Suspicious activity'|t('porro') }}</span><span>{{ 'last {hours} h'|t('porro', {hours: activity.hours}) }}</span></div>
+                <div class="porro-stats">
+                    {% for total in activity.totals %}
+                        <div class="porro-stat"><b>{{ total.value|number }}</b><span class="light smalltext">{{ total.label }}</span></div>
+                    {% endfor %}
+                </div>
+
+                {% if activity.flagged is empty %}
+                    <p class="porro-note light">{{ 'Nothing suspicious in the last {hours} hours.'|t('porro', {hours: activity.hours}) }}</p>
+                {% else %}
+                    <div style="overflow-x: auto">
+                        <table class="data fullwidth">
+                            <thead>
+                                <tr>
+                                    <th scope="col">{{ 'IP'|t('porro') }}</th>
+                                    <th scope="col">{{ 'Country'|t('porro') }}</th>
+                                    <th scope="col">{{ 'Signals'|t('porro') }}</th>
+                                    <th scope="col">{{ 'Last request'|t('porro') }}</th>
+                                    <th scope="col">{{ 'Last seen'|t('porro') }}</th>
+                                    {% if canManage %}<th scope="col"><span class="visually-hidden">{{ 'Actions'|t('porro') }}</span></th>{% endif %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for ip in activity.flagged %}
+                                    <tr>
+                                        <td class="porro-mono porro-nowrap">
+                                            <a href="{{ cpUrl('porro/activity/' ~ ip.ip) }}">{{ ip.ip }}</a>
+                                            {% for badge in ip.badges %}<span class="porro-chip {{ badge.tone }}">{{ badge.label }}</span>{% endfor %}
+                                        </td>
+                                        <td class="porro-nowrap" title="{{ ip.country.code ?? '' }}">{{ ip.country.label ?? '—' }}</td>
+                                        <td>{% for signal in ip.signals %}<span class="porro-chip">{{ signal.label }} {{ signal.count }}</span>{% endfor %}</td>
+                                        <td class="porro-mono porro-anywhere">{{ ip.request }}</td>
+                                        <td class="light porro-nowrap">{{ ip.seen }}</td>
+                                        {% if canManage %}
+                                            <td class="thin">
+                                                <div class="porro-actions">
+                                                    {% if ip.blocked %}
+                                                        <span class="porro-chip danger">{{ 'blocked'|t('porro') }}</span>
+                                                    {% else %}
+                                                        {% for days in [7, 0] %}
+                                                            <form method="post" accept-charset="UTF-8" data-porro-confirm="{{ craft.porro.confirmBlock(ip.ip, days)|json_encode }}">
+                                                                {{ csrfInput() }}
+                                                                {{ actionInput('porro/blocking/block') }}
+                                                                {{ redirectInput(craft.app.request.url) }}
+                                                                {{ hiddenInput('ip', ip.ip) }}
+                                                                {{ hiddenInput('reason', ip.reason) }}
+                                                                {{ hiddenInput('days', days) }}
+                                                                {% if days %}{{ hiddenInput('suggested', 1) }}{% endif %}
+                                                                <button type="submit" class="btn small">{{ days ? 'Block 7 days'|t('porro') : 'Block permanently'|t('porro') }}</button>
+                                                            </form>
+                                                        {% endfor %}
+                                                        <form method="post" accept-charset="UTF-8" data-porro-confirm="{{ craft.porro.confirmSafelist(ip.ip)|json_encode }}">
+                                                            {{ csrfInput() }}
+                                                            {{ actionInput('porro/blocking/safelist') }}
+                                                            {{ redirectInput(craft.app.request.url) }}
+                                                            {{ hiddenInput('ip', ip.ip) }}
+                                                            {{ hiddenInput('label', 'From the activity table'|t('porro')) }}
+                                                            <button type="submit" class="btn small">{{ 'Safelist'|t('porro') }}</button>
+                                                        </form>
+                                                    {% endif %}
+                                                </div>
+                                            </td>
+                                        {% endif %}
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% endif %}
+
+                <p class="porro-note light smalltext" style="border-top: 1px solid var(--hairline-color, #e3e5e8)">
+                    <a href="{{ cpUrl('porro/blocking') }}">{{ '{count, plural, =1{# IP blocked} other{# IPs blocked}}'|t('porro', {count: activity.blocked}) }} · {{ '{count} safelisted'|t('porro', {count: activity.safelisted}) }}</a>
+                    {% if activity.countries %} · <a href="{{ activity.countries.url }}" target="_blank" rel="noopener">{{ activity.countries.attribution }}</a>{% endif %}
+                </p>
+            </section>
+        {% endif %}
+    </div>
+    {% include 'porro/_partials/confirm' %}
+{% endblock %}

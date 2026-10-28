@@ -131,15 +131,16 @@ function site(bool $fpm = true, array $env = []): string
  * A GET (or POST) with a cookie jar, so a login sticks.
  *
  * @param  array<string, string>|null  $post
+ * @param  list<string>  $headers  e.g. "X-Forwarded-For: 45.83.64.9" to send as a visitor
  * @return array{0: int, 1: string}
  */
-function http(string $url, ?string $jar = null, ?array $post = null): array
+function http(string $url, ?string $jar = null, ?array $post = null, array $headers = []): array
 {
     $curl = curl_init($url);
     // + rather than spread: spreading renumbers the integer option keys.
     curl_setopt_array($curl, [
         CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_HTTPHEADER => ['Accept: application/json'],
+        CURLOPT_HTTPHEADER => ['Accept: application/json', ...$headers],
         CURLOPT_TIMEOUT => 30,
         // Craft won't start a session without one.
         CURLOPT_USERAGENT => 'porro-tests',
@@ -206,6 +207,39 @@ function cpUser(string $username, array $permissions): void
     exec($command.' 2>&1', $output, $code);
 
     expect($code)->toBe(0, implode("\n", $output));
+}
+
+/**
+ * Activity and blocking in the Craft install: reset, block or safelist.
+ */
+function blocking(string $action, string ...$args): void
+{
+    $command = implode(' ', array_map('escapeshellarg', [PHP_BINARY, __DIR__.'/support/blocking.php', $action, ...$args]));
+    exec($command.' 2>&1', $output, $code);
+
+    expect($code)->toBe(0, implode("\n", $output));
+}
+
+/**
+ * The site behind a proxy at 127.0.0.1 that Craft trusts, so asVisitor()
+ * can say who's visiting. Unconnected, so no reports are sent.
+ *
+ * @param  array<string, string>  $env
+ */
+function proxiedSite(array $env = []): string
+{
+    return site(env: ['PORRO_ENABLED' => 'false', 'CRAFT_TRUSTED_HOSTS' => '127.0.0.1', ...$env]);
+}
+
+/**
+ * A request from a visitor at $ip, through proxiedSite()'s proxy.
+ *
+ * @param  array<string, string>|null  $post
+ * @return array{0: int, 1: string}
+ */
+function asVisitor(string $url, string $ip, ?array $post = null, ?string $jar = null): array
+{
+    return http($url, $jar, $post, ["X-Forwarded-For: {$ip}"]);
 }
 
 /**
