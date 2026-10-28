@@ -63,16 +63,67 @@
             {% endfor %}
         </section>
 
+        {% set did = ipInfo.activity %}
         <section class="porro-pane">
-            <div class="porro-pane-head"><span>{{ 'What it did here'|t('porro') }}</span><span>{{ 'signals per hour · last 48 h'|t('porro') }}</span></div>
-            {% if ipInfo.activity %}
+            <div class="porro-pane-head"><span>{{ 'What it did here'|t('porro') }}</span><span>{{ 'requests per hour · last 48 h'|t('porro') }}</span></div>
+            {% if did %}
                 <div class="porro-bars" aria-hidden="true">
-                    {% for hour in ipInfo.activity.hours %}<span class="{{ hour.tone }}" style="height: {{ hour.height }}px"></span>{% endfor %}
+                    {% for hour in did.hours %}<span class="{{ hour.tone }}" style="height: {{ hour.height }}px"></span>{% endfor %}
                 </div>
                 <div class="porro-row light smalltext" style="border: 0; padding-top: 4px"><span class="porro-grow">{{ '48 h ago'|t('porro') }}</span><span>{{ 'now'|t('porro') }}</span></div>
+                {% for label, value in did.summary %}
+                    <dl class="porro-kv"><dt>{{ label }}</dt><dd class="porro-anywhere">{{ value }}</dd></dl>
+                {% endfor %}
+                {% if did.direct %}
+                    <p class="porro-note smalltext" style="color: var(--warning-color, #b45309)">{{ 'Some of its requests came straight to the server’s own address, not through Cloudflare. Blocking at Cloudflare won’t stop those: block in the app or in nginx, or let only Cloudflare reach the server at its firewall.'|t('porro') }}</p>
+                {% endif %}
+                {% if not did.flagged %}
+                    <p class="porro-note light smalltext">{{ 'Recorded, but under the thresholds that flag an IP. Only its suspicious requests are counted until it’s flagged.'|t('porro') }}</p>
+                {% endif %}
+            {% else %}
+                <p class="porro-note light">{{ 'Nothing recorded from this IP in the last 48 hours.'|t('porro') }}</p>
+            {% endif %}
+        </section>
+
+        {% if did and did.paths %}
+            <section class="porro-pane">
+                <div class="porro-pane-head"><span>{{ 'Paths it asked for'|t('porro') }}</span><span>{{ 'requests · last answer'|t('porro') }}</span></div>
                 <table class="data fullwidth">
                     <tbody>
-                        {% for r in ipInfo.activity.requests %}
+                        {% for p in did.paths %}
+                            <tr class="porro-mono">
+                                <td class="porro-anywhere">{{ p.path }}</td>
+                                <td class="thin light">×{{ p.count|number }}</td>
+                                <td class="thin {{ p.exposed ? 'porro-critical' : 'light' }}">{{ p.status ?: '—' }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% if did.otherPaths %}
+                    <p class="porro-note light smalltext">{{ '…and {count, plural, =1{# more request} other{# more requests}} to other paths.'|t('porro', {count: did.otherPaths}) }}</p>
+                {% endif %}
+            </section>
+        {% endif %}
+
+        {% if did and did.agents %}
+            <section class="porro-pane">
+                <div class="porro-pane-head"><span>{{ 'User agents'|t('porro') }}</span><span>{{ 'requests'|t('porro') }}</span></div>
+                <table class="data fullwidth">
+                    <tbody>
+                        {% for a in did.agents %}
+                            <tr class="porro-mono"><td class="porro-anywhere">{{ a.agent }}</td><td class="thin light">×{{ a.count|number }}</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </section>
+        {% endif %}
+
+        {% if did and did.requests %}
+            <section class="porro-pane">
+                <div class="porro-pane-head"><span>{{ 'Latest requests'|t('porro') }}</span></div>
+                <table class="data fullwidth">
+                    <tbody>
+                        {% for r in did.requests %}
                             <tr class="porro-mono">
                                 <td class="light thin">{{ r.method }}</td>
                                 <td class="porro-anywhere">{{ r.path }}</td>
@@ -82,10 +133,8 @@
                         {% endfor %}
                     </tbody>
                 </table>
-            {% else %}
-                <p class="porro-note light">{{ 'Nothing flagged from this IP in the last 48 hours.'|t('porro') }}</p>
-            {% endif %}
-        </section>
+            </section>
+        {% endif %}
 
         <section class="porro-pane">
             <div class="porro-pane-head"><span>{{ 'Reputation'|t('porro') }}</span><span>AbuseIPDB</span></div>

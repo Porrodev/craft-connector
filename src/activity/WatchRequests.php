@@ -62,6 +62,7 @@ class WatchRequests
         }
 
         $this->blocked = true;
+        register_shutdown_function(fn () => $this->recordTurnedAway());
         $response = Craft::$app->getResponse();
         $response->setStatusCode(403);
         $response->format = $response::FORMAT_RAW;
@@ -89,7 +90,7 @@ class WatchRequests
             $activity->recorder()->record(
                 $activity->clientIp($request),
                 Recorder::LOGIN_FAILED,
-                $request->getMethod(),
+                self::method(),
                 self::path(),
                 401,
                 is_string($username) && $username !== '' ? $username : null,
@@ -112,29 +113,63 @@ class WatchRequests
 
             $request = Craft::$app->getRequest();
             $ip = $activity->clientIp($request);
-            $country = $activity->country($request);
-            $method = $request->getMethod();
+            $method = self::method();
             $path = self::path();
+
             $status = (int) (http_response_code() ?: Craft::$app->getResponse()->getStatusCode());
             $recorder = $activity->recorder();
             $category = $activity->probes()->match($path);
+            $more = [
+                'country' => $activity->country($request),
+                'userAgent' => $request->getUserAgent(),
+                'host' => self::host(),
+                'proxied' => $activity->viaCloudflare($request),
+            ];
 
             if ($category !== null) {
-                $recorder->record($ip, Recorder::PROBE, $method, $path, $status, country: $country, userAgent: $request->getUserAgent());
+                $recorder->record($ip, Recorder::PROBE, $method, $path, $status, ...[...$more, 'category' => $category]);
 
                 if (Probes::exposes($category) && $status >= 200 && $status < 300) {
                     $recorder->exposed($ip, $path, $status);
                 }
+            } elseif ($status === 404) {
+                $recorder->record($ip, Recorder::NOT_FOUND, $method, $path, $status, ...$more);
+            } elseif ($method === 'POST' && ! $this->failedLogin && ! $this->signedIn()) {
+                // People using the control panel post all day; a flood comes from outside.
+                $recorder->record($ip, Recorder::POST_FLOOD, $method, $path, $status, ...$more);
+            } elseif (! $this->failedLogin && $activity->watching($ip)) {
+                // Flagged already: count the rest, so its page shows them all.
+                $recorder->seen($ip, $method, $path, $status, $more['host'], $more['userAgent'], $more['proxied']);
+            }
+        } catch (Throwable) {
+            //
+        }
 
+        // Expired rows are cleared now and then even without cron, after
+        // recording, so a failed tidy never costs an event.
+        try {
+            if (random_int(1, 500) === 1 && ($activity = $this->activity()) && $activity->recording()) {
+                $activity->tidyStore();
+            }
+        } catch (Throwable) {
+            //
+        }
+    }
+
+    /**
+     * After a block's 403 has gone: counted for the IP's page.
+     */
+    private function recordTurnedAway(): void
+    {
+        try {
+            $activity = $this->activity();
+
+            if (! $activity || ! $activity->recording()) {
                 return;
             }
 
-            if ($status === 404) {
-                $recorder->record($ip, Recorder::NOT_FOUND, $method, $path, $status, country: $country, userAgent: $request->getUserAgent());
-            } elseif ($method === 'POST' && ! $this->failedLogin && ! $this->signedIn()) {
-                // People using the control panel post all day; a flood comes from outside.
-                $recorder->record($ip, Recorder::POST_FLOOD, $method, $path, $status, country: $country, userAgent: $request->getUserAgent());
-            }
+            $request = Craft::$app->getRequest();
+            $activity->recorder()->turnedAway($activity->clientIp($request), self::method(), self::path(), self::host(), $request->getUserAgent(), $activity->viaCloudflare($request));
         } catch (Throwable) {
             //
         }
@@ -146,6 +181,27 @@ class WatchRequests
             return Craft::$app->getUser()->getIdentity(false) !== null;
         } catch (Throwable) {
             return false;
+        }
+    }
+
+    /**
+     * The method actually sent: Yii honours X-Http-Method-Override and
+     * _method, which would let a POST flood pass as a PUT.
+     */
+    private static function method(): string
+    {
+        return (string) ($_SERVER['REQUEST_METHOD'] ?? Craft::$app->getRequest()->getMethod());
+    }
+
+    /**
+     * The Host it asked for, or null if it can't be read.
+     */
+    private static function host(): ?string
+    {
+        try {
+            return Craft::$app->getRequest()->getHostName();
+        } catch (Throwable) {
+            return null;
         }
     }
 

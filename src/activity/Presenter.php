@@ -6,10 +6,11 @@ use Craft;
 use Porro\Core\Activity\Cidr;
 use Porro\Core\Activity\Countries;
 use Porro\Core\Activity\Entry;
-use Porro\Core\Activity\FlaggedIp;
+use Porro\Core\Activity\IpActivity;
 use Porro\Core\Activity\IpDetails;
 use Porro\Core\Activity\NginxBlocklist;
 use Porro\Core\Activity\NginxStatus;
+use Porro\Core\Activity\Probes;
 use Porro\Core\Activity\ProtectedRanges;
 use Porro\Core\Activity\Recorder;
 use Throwable;
@@ -305,7 +306,8 @@ class Presenter
             }
         }
 
-        $details = $this->activity->details($ip, $flagged?->userAgent);
+        $history = $this->activity->recorder()->history($ip);
+        $details = $this->activity->details($ip, $flagged?->userAgent ?? ($history ? array_key_first($history->agents) : null));
         $crawler = $this->crawler($details);
         $badges = array_values(array_map(fn ($b) => (self::BADGES[$b] ?? ['label' => $b, 'tone' => 'neutral']) + ['key' => $b], $details['badges']));
 
@@ -329,7 +331,6 @@ class Presenter
                 default => null,
             },
             Craft::t('porro', 'Hostname') => $details['hostname'] ? $details['hostname'].' · '.Craft::t('porro', 'verified') : null,
-            Craft::t('porro', 'User agent') => $flagged?->userAgent,
         ]);
 
         try {
@@ -340,11 +341,11 @@ class Presenter
 
         return [
             'ip' => $ip,
-            'country' => self::country($details['country'] ?? ($flagged?->country)),
+            'country' => self::country($details['country'] ?? ($flagged?->country ?? $history?->country)),
             'badges' => $badges,
             'network' => array_map(fn ($label, $value) => ['label' => $label, 'value' => $value, 'mono' => in_array($label, [Craft::t('porro', 'Hostname'), Craft::t('porro', 'User agent')], true)], array_keys($network), $network),
             'crawler' => $crawler,
-            'activity' => $flagged ? $this->did($flagged) : null,
+            'activity' => $history ? $this->did($history) : null,
             'blocked' => $this->isBlocked($ip),
             'safelisted' => $safelisted,
             // On an always-protected list: can't be blocked, so no buttons.
@@ -506,11 +507,12 @@ class Presenter
     }
 
     /**
-     * Signals per hour over 48 hours, and the last requests.
+     * What it did here over 48 hours: requests per hour, a summary, its
+     * top paths and user agents, and the last requests.
      *
      * @return array<string, mixed>
      */
-    private function did(FlaggedIp $ip): array
+    private function did(IpActivity $ip): array
     {
         $hours = [];
 
@@ -519,6 +521,8 @@ class Presenter
         }
 
         $peak = max(1, ...$hours);
+        $times = fn (array $counts, array $labels = []) => implode(' · ', array_map(fn ($key, $n) => ($labels[$key] ?? $key).' ×'.number_format($n), array_keys($counts), $counts)) ?: null;
+        $t = fn (string $text, array $params = []) => Craft::t('porro', $text, $params);
 
         return [
             'hours' => array_map(fn (int $n) => [
@@ -526,7 +530,24 @@ class Presenter
                 'height' => $n ? max(6, (int) round($n / $peak * 44)) : 2,
                 'tone' => $n > 10 ? 'lots' : ($n > 0 ? 'some' : ''),
             ], $hours),
-            'first' => $ip->recent ? self::ago((int) $ip->recent[array_key_last($ip->recent)][3]) : null,
+            'flagged' => $ip->flagged,
+            'first' => self::ago($ip->firstSeen),
+            'direct' => $ip->direct > 0 && ($ip->viaCloudflare > 0 || $this->activity->cloudflare()->configured()),
+            'summary' => array_filter([
+                $t('Requests') => ($ip->estimated ? $t('about {n}', ['n' => number_format($ip->requests)]) : number_format($ip->requests))
+                    .($ip->turnedAway ? ' · '.$t('{count, plural, =1{# turned away by the block} other{# turned away by the block}}', ['count' => $ip->turnedAway]) : '')
+                    .($ip->flagged ? '' : ' · '.$t('not flagged')),
+                $t('Seen') => gmdate('j M H:i', $ip->firstSeen).' → '.gmdate('j M H:i', $ip->lastSeen),
+                $t('Signals') => $times($ip->signals(), self::SIGNALS),
+                $t('Looking for') => $times($ip->categories, array_map(fn ($label) => $t($label), Probes::LABELS)),
+                $t('Responses') => $times($ip->statuses),
+                $t('Route') => $times(array_filter([$t('through Cloudflare') => $ip->viaCloudflare, $t('straight to the server') => $ip->direct])),
+                $t('Hosts') => $times($ip->hosts),
+                $t('Methods') => $times($ip->methods),
+            ]),
+            'paths' => array_map(fn ($path, $row) => ['path' => (string) $path, 'count' => (int) $row[0], 'status' => (int) $row[1], 'exposed' => (int) $row[1] >= 200 && (int) $row[1] < 300], array_keys($ip->paths), $ip->paths),
+            'otherPaths' => $ip->otherPaths,
+            'agents' => array_map(fn ($agent, $n) => ['agent' => (string) $agent, 'count' => (int) $n], array_keys($ip->agents), $ip->agents),
             'requests' => array_map(fn ($r) => [
                 'method' => (string) $r[0],
                 'path' => (string) $r[1],

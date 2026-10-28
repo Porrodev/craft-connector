@@ -175,14 +175,15 @@ class Activity extends Component
         return $this->recorder ??= new Recorder(
             fn (string $key) => $cache->get($key) ?: null,
             fn (string $key, mixed $value, int $ttl) => $cache->set($key, $value, $ttl),
-            function (string $key, int $ttl) use ($cache) {
+            function (string $key, int $ttl, int $by = 1) use ($cache) {
                 // Craft's cache has no increment: close enough for counting.
-                $cache->set($key, ((int) $cache->get($key)) + 1, $ttl);
+                $cache->set($key, ((int) $cache->get($key)) + $by, $ttl);
             },
             $this->ranges(),
             (string) Craft::$app->getConfig()->getGeneral()->securityKey,
             fn (string $ip) => $this->compiled()['safe']->has($ip),
             array_map('intval', (array) self::config('thresholds')),
+            fn (array $keys) => $cache->multiGet($keys),
         );
     }
 
@@ -207,6 +208,20 @@ class Activity extends Component
     /**
      * The visitor's country when Cloudflare sent it: free, no lookup.
      */
+    public function viaCloudflare(Request $request): bool
+    {
+        return $this->ranges()->isCloudflare((string) $request->getRemoteIP());
+    }
+
+    /**
+     * Whether $ip was flagged in the last 48 hours, so its every request
+     * is counted for its page. Read with the blocklist: no extra lookup.
+     */
+    public function watching(string $ip): bool
+    {
+        return $this->compiled()['watch']->has($ip);
+    }
+
     public function country(Request $request): ?string
     {
         return ClientIp::country($this->peer($request), $request->getHeaders()->toArray(), $this->ranges());
@@ -392,7 +407,7 @@ class Activity extends Component
      * visit. Also carries state saved in Craft's cache by older versions
      * across, once.
      */
-    private function tidyStore(): void
+    public function tidyStore(): void
     {
         $store = self::store();
         $cache = Craft::$app->getCache();
@@ -583,7 +598,7 @@ class Activity extends Component
     }
 
     /**
-     * @return array{blocks: IpSet, safe: IpSet}
+     * @return array{blocks: IpSet, safe: IpSet, watch: IpSet}
      */
     private function compiled(): array
     {
@@ -600,11 +615,12 @@ class Activity extends Component
                 $data = [
                     'blocks' => array_map(fn (Entry $e) => [$e->cidr, $e->note], $list->blocks()),
                     'safe' => array_map(fn (Entry $e) => $e->cidr, $list->safe()),
+                    'watch' => $this->recorder()->watched(),
                 ];
                 $cache->set(self::COMPILED, $data, self::COMPILED_TTL);
             } catch (Throwable) {
                 // No tables yet, or no database: nothing is blocked.
-                $data = ['blocks' => [], 'safe' => []];
+                $data = ['blocks' => [], 'safe' => [], 'watch' => []];
             }
         }
 
@@ -614,7 +630,7 @@ class Activity extends Component
             $blocks->add(Cidr::tryParse((string) $cidr), (string) $note);
         }
 
-        return $this->compiled = ['blocks' => $blocks, 'safe' => IpSet::of($data['safe'] ?? [])];
+        return $this->compiled = ['blocks' => $blocks, 'safe' => IpSet::of($data['safe'] ?? []), 'watch' => IpSet::of($data['watch'] ?? [])];
     }
 
     /**

@@ -42,6 +42,28 @@ it('keeps activity through clear-caches, as a deploy runs it', function () {
         ->toContain('probe 3');
 });
 
+it('sums up what an IP did, and counts a flagged IP’s other requests and those a block turns away', function () {
+    $site = proxiedSite();
+
+    foreach (['/containers/json', '/images/json', '/.env'] as $path) {
+        asVisitor("{$site}{$path}", '45.83.64.11');
+    }
+    craft(['cache/flush-all']);
+    asVisitor("{$site}/", '45.83.64.11');
+    blocking('block', '45.83.64.11');
+    [$blocked] = asVisitor("{$site}/info", '45.83.64.11');
+
+    [, $html] = http("{$site}/index.php?p=admin/porro/activity/45.83.64.11", logIn($site));
+
+    expect($blocked)->toBe(403)
+        ->and($html)->toContain('requests per hour')
+        ->toContain('5 · 1 turned away by the block')
+        ->toContain('Exposed services: Docker, MLflow, cloud metadata ×2')
+        ->toContain('Secrets: .env, keys, database dumps ×1')
+        ->toContain('Paths it asked for')
+        ->toContain('/containers/json');
+});
+
 it('counts failed sign-ins, and not as form posts', function () {
     $site = proxiedSite();
     $jar = (string) tempnam(sys_get_temp_dir(), 'jar');
