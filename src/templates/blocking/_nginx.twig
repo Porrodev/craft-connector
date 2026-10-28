@@ -1,0 +1,99 @@
+{% extends '_layouts/cp' %}
+
+{% set title = 'Set up nginx'|t('porro') %}
+{% set crumbs = [{label: 'Blocking'|t('porro'), url: cpUrl('porro/blocking')}] %}
+
+{% macro done(ok) -%}
+    <span class="porro-chip {{ ok ? 'on' }}">{{ ok ? 'Done'|t('porro') : 'To do'|t('porro') }}</span>
+{%- endmacro %}
+
+{% macro onServers(n, servers) -%}
+    {%- if servers == 0 -%}
+        <span class="porro-chip">{{ 'No server has checked in yet'|t('porro') }}</span>
+    {%- else -%}
+        <span class="porro-chip {{ n == servers ? 'on' }}">{{ 'Done on {n} of {count, plural, =1{# server} other{# servers}}'|t('porro', {n: n, count: servers}) }}</span>
+    {%- endif -%}
+{%- endmacro %}
+
+{% macro copyable(text) -%}
+    <div style="display: flex; gap: 8px; align-items: flex-start">
+        <pre class="porro-code" style="flex: 1; margin: 0"><code>{{ text }}</code></pre>
+        <button type="button" class="btn small" data-porro-copy="{{ text }}">{{ 'Copy'|t('porro') }}</button>
+    </div>
+{%- endmacro %}
+
+{% block content %}
+    {% include 'porro/_partials/styles' %}
+    {% import _self as m %}
+    <div class="porro-page">
+        <p class="light porro-sub readable">{{ 'nginx turns blocked IPs away before PHP runs. Porro keeps a deny file up to date; nginx reads it. Four one-time steps: the first once for the site, the others on every server it runs on.'|t('porro') }}</p>
+
+        {% if not nginx.production %}
+            <p class="notice">{{ 'This copy isn’t production, so it doesn’t write the file. Do these steps for the production site and its servers.'|t('porro') }}</p>
+        {% endif %}
+
+        <section class="porro-pane">
+            <div class="porro-pane-head"><span>{{ '1 · Turn on nginx mode'|t('porro') }}</span>{{ m.done(nginx.on) }}</div>
+            <div class="porro-pane-body">
+                <p>{{ 'Add this to the site’s environment: .env, or on Forge, the site’s Environment tab.'|t('porro') }}</p>
+                {{ m.copyable('PORRO_BLOCK_NGINX=true') }}
+            </div>
+        </section>
+
+        <section class="porro-pane">
+            <div class="porro-pane-head"><span>{{ '2 · Write the file every minute'|t('porro') }}</span>{{ m.onServers(progress.servers, progress.servers) }}</div>
+            <div class="porro-pane-body">
+                <p>{{ 'A cron line as the site’s user, so blocks reach nginx within a minute and expired ones drop off. On Forge: Server → Scheduler → New job, every minute.'|t('porro') }}</p>
+                {{ m.copyable(nginx.sync) }}
+            </div>
+        </section>
+
+        <section class="porro-pane">
+            <div class="porro-pane-head"><span>{{ '3 · Add one line to the site’s nginx config'|t('porro') }}</span>{{ m.onServers(progress.included, progress.servers) }}</div>
+            <div class="porro-pane-body">
+                <p>{{ 'Inside server { }, above the first location. On Forge: open the site, then Edit Nginx Configuration from the Files menu, and save.'|t('porro') }}</p>
+                {{ m.copyable(nginx.include) }}
+                <p class="light smalltext" style="margin: 12px 0 4px">{{ 'Where it goes, in a trimmed copy of this site’s config:'|t('porro') }}</p>
+                <pre class="porro-code"><code>{% for row in example %}{% if row.add %}<strong>{{ row.line }}</strong>  <em>← {{ 'add this line'|t('porro') }}</em>{% else %}{{ row.line }}{% endif %}{{ "\n" }}{% endfor %}</code></pre>
+                {% if realIpInFile %}
+                    <p class="smalltext">{{ 'Behind Cloudflare: the file also carries Cloudflare’s real IP lines, so nginx turns away the visitor and not Cloudflare. Nothing else to add. If this config already sets real_ip_header, set PORRO_NGINX_REAL_IP=false.'|t('porro') }}</p>
+                {% elseif behindCloudflare %}
+                    <p class="smalltext">{{ 'This site is behind Cloudflare but PORRO_NGINX_REAL_IP is off, so the config needs Cloudflare’s real IP lines too. Without them nginx sees Cloudflare’s address and would deny Cloudflare, not the visitor:'|t('porro') }}</p>
+                    {{ m.copyable(nginx.realIp) }}
+                {% else %}
+                    <p class="light smalltext">{{ 'Behind Cloudflare? Porro adds Cloudflare’s real IP lines to the file for you once you open this page through it, or once a Cloudflare token is set.'|t('porro') }}</p>
+                {% endif %}
+            </div>
+        </section>
+
+        <section class="porro-pane">
+            <div class="porro-pane-head"><span>{{ '4 · Reload nginx when the list changes'|t('porro') }}</span>{{ m.onServers(progress.loaded, progress.servers) }}</div>
+            <div class="porro-pane-body">
+                <p>{{ 'A scheduled job that runs every minute as root. On Forge: Server → Scheduler → New job, user root, frequency every minute.'|t('porro') }}</p>
+                {{ m.copyable(nginx.reload) }}
+                <p class="light smalltext" style="margin: 8px 0 0">{{ 'It reloads only when the file has changed and nginx -t passes, so a bad config never takes the site down.'|t('porro') }}</p>
+            </div>
+        </section>
+
+        <section class="porro-pane">
+            <div class="porro-pane-head"><span>{{ 'Servers'|t('porro') }}</span><span>{{ 'checked every minute'|t('porro') }}</span></div>
+            {% for server in nginx.servers %}
+                <div class="porro-row">
+                    <span class="porro-mono porro-grow">{{ server.name }}</span>
+                    {% if server.state == 'loaded' and behindCloudflare and server.realIp is same as(false) %}
+                        <span class="smalltext porro-critical">{{ 'Real IP lines missing'|t('porro') }}</span>
+                    {% endif %}
+                    <span class="light smalltext">{% if server.reloaded %}{{ 'reloaded {ago}'|t('porro', {ago: server.reloaded}) }} · {% endif %}{{ 'checked {ago}'|t('porro', {ago: server.checked}) }}</span>
+                    <span class="porro-chip {{ server.ok ? 'on' : (server.state == 'not_included' ? 'danger') }}">{{ server.label }}</span>
+                </div>
+            {% else %}
+                <p class="porro-note light">{{ 'No server has checked in yet. Once steps 1 and 2 are done, each server checks itself every minute and shows up here.'|t('porro') }}</p>
+            {% endfor %}
+            <p class="porro-note light smalltext" style="border-top: 1px solid var(--hairline-color, #e3e5e8)">
+                {{ 'Each server checks by looking, never by running anything: the file exists, a readable nginx config includes it, and the reload job has run since the last change.'|t('porro') }}
+                {% if not sharedCache %}{{ 'This site’s cache isn’t shared between servers, so only this server shows here. Use Redis or the database cache to see them all.'|t('porro') }}{% endif %}
+            </p>
+        </section>
+    </div>
+    {% include 'porro/_partials/confirm' %}
+{% endblock %}

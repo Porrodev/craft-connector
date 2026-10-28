@@ -44,6 +44,17 @@ class BlockingController extends Controller
     }
 
     /**
+     * Setting up nginx: the steps for the site and each server, and how
+     * far each server has got.
+     */
+    public function actionNginx(): Response
+    {
+        return $this->renderTemplate('porro/blocking/_nginx', (new Presenter(Plugin::getInstance()->getActivity()))->nginx($this->request->getRemoteIP()) + [
+            'selectedSubnavItem' => 'blocking',
+        ]);
+    }
+
+    /**
      * The whole blocklist or safelist: searchable, filterable, 50 a page.
      */
     public function actionList(string $list): Response

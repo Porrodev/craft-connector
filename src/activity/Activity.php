@@ -10,11 +10,14 @@ use Porro\Core\Activity\AbuseIpdb;
 use Porro\Core\Activity\Blocklist;
 use Porro\Core\Activity\Cidr;
 use Porro\Core\Activity\ClientIp;
+use Porro\Core\Activity\CloudflareError;
 use Porro\Core\Activity\Countries;
 use Porro\Core\Activity\Entry;
 use Porro\Core\Activity\FlaggedIp;
 use Porro\Core\Activity\IpDetails;
 use Porro\Core\Activity\IpSet;
+use Porro\Core\Activity\NginxBlocklist;
+use Porro\Core\Activity\NginxStatus;
 use Porro\Core\Activity\Probes;
 use Porro\Core\Activity\ProtectedRanges;
 use Porro\Core\Activity\Ranking;
@@ -22,6 +25,7 @@ use Porro\Core\Activity\Recorder;
 use Porro\Core\Activity\Summary;
 use Porro\Core\Health\Issue;
 use Porro\Core\Health\Sources;
+use porro\craft\jobs\SyncCloudflare;
 use porro\craft\services\SiteHealth;
 use Throwable;
 use yii\base\Component;
@@ -63,6 +67,11 @@ class Activity extends Component
     private ?Recorder $recorder = null;
 
     private ?Probes $probes = null;
+
+    private ?CloudflareMode $cloudflare = null;
+
+    /** Set when someone opens the nginx setup page through Cloudflare. */
+    public const BEHIND_CLOUDFLARE = 'porro:activity:behind-cloudflare';
 
     /** @var array{blocks: IpSet, safe: IpSet}|null */
     private ?array $compiled = null;
@@ -200,7 +209,79 @@ class Activity extends Component
      */
     public function details(string $ip, ?string $userAgent = null): array
     {
-        return (new IpDetails(SiteHealth::sources(), $this->countries(), null, self::reverseDns()))->lookup($ip, $userAgent);
+        return (new IpDetails(SiteHealth::sources(), $this->countries(), $this->network(...), self::reverseDns()))->lookup($ip, $userAgent);
+    }
+
+    public function cloudflare(): CloudflareMode
+    {
+        return $this->cloudflare ??= new CloudflareMode($this);
+    }
+
+    public function nginxServers(): NginxServers
+    {
+        return new NginxServers($this);
+    }
+
+    /**
+     * Whether a deny file is written for nginx: PORRO_BLOCK_NGINX.
+     */
+    public function nginxEnabled(): bool
+    {
+        return self::flag('PORRO_BLOCK_NGINX') ?? false;
+    }
+
+    public function nginxPath(): string
+    {
+        $path = trim((string) App::env('PORRO_NGINX_PATH'));
+
+        return $path !== '' ? $path : Craft::$app->getPath()->getStoragePath().'/porro/nginx-blocklist.conf';
+    }
+
+    /** The stamp the reload job touches; the default suits Forge. */
+    public function nginxStamp(): string
+    {
+        $stamp = self::config('nginxStamp');
+
+        return is_string($stamp) && $stamp !== '' ? $stamp : NginxStatus::STAMP;
+    }
+
+    /**
+     * Where the setup page looks to confirm nginx includes the file.
+     *
+     * @return list<string>
+     */
+    public function nginxConfigDirs(): array
+    {
+        return self::strings(self::config('nginxConfigDirs')) ?: NginxStatus::CONFIG_DIRS;
+    }
+
+    /**
+     * Whether the deny file carries Cloudflare's real IP lines:
+     * PORRO_NGINX_REAL_IP when set, otherwise when the site is behind
+     * Cloudflare (a Cloudflare token, or the setup page seen through it).
+     */
+    public function nginxRealIp(): bool
+    {
+        return self::flag('PORRO_NGINX_REAL_IP') ?? ($this->cloudflare()->configured() || (bool) Craft::$app->getCache()->get(self::BEHIND_CLOUDFLARE));
+    }
+
+    /**
+     * Writes this server's nginx deny file, in nginx mode and production
+     * only, and records how far this server's setup has got.
+     *
+     * @return bool|null whether the file changed; null when it isn't written here
+     */
+    public function writeNginx(): ?bool
+    {
+        if (! $this->nginxEnabled() || ! $this->isProduction()) {
+            return null;
+        }
+
+        $realIp = $this->nginxRealIp() ? NginxBlocklist::realIp($this->ranges()) : null;
+        $changed = NginxBlocklist::write($this->nginxPath(), NginxBlocklist::render($this->blocklist()->blocks(), null, $realIp));
+        $this->nginxServers()->record();
+
+        return $changed;
     }
 
     /**
@@ -255,7 +336,8 @@ class Activity extends Component
                 Craft::info("Porro: removed {$entry['cidr']} from the {$entry['list']}: {$entry['why']}", __METHOD__);
             }
 
-            $this->changed();
+            $this->forgetCompiled();
+            $this->cloudflare()->sync();
 
             // A few checks a day at most, so a failed download isn't retried every run.
             $cache = Craft::$app->getCache();
@@ -289,6 +371,23 @@ class Activity extends Component
      * Call after any change to either list.
      */
     public function changed(): void
+    {
+        $this->forgetCompiled();
+
+        // This server's nginx file now; the others catch up within a minute.
+        try {
+            $this->writeNginx();
+        } catch (Throwable $e) {
+            Craft::warning('Porro couldn’t write the nginx file: '.$e->getMessage(), __METHOD__);
+        }
+
+        // Cloudflare from the queue, so whoever blocked doesn't wait.
+        if ($this->cloudflare()->configured() && $this->isProduction()) {
+            Craft::$app->getQueue()->push(new SyncCloudflare);
+        }
+    }
+
+    private function forgetCompiled(): void
     {
         Craft::$app->getCache()->delete(self::COMPILED);
         $this->compiled = null;
@@ -482,6 +581,37 @@ class Activity extends Component
         } catch (Throwable) {
             return [];
         }
+    }
+
+    /**
+     * Cloudflare's view of an IP's network, once a token is set. Intel
+     * needs a permission most tokens won't have; once it's refused, Radar
+     * for a day.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function network(string $ip): ?array
+    {
+        $cloudflare = $this->cloudflare();
+
+        if (! $cloudflare->configured()) {
+            return null;
+        }
+
+        $cache = Craft::$app->getCache();
+        $account = $cloudflare->state()['connection']['account'] ?? null;
+
+        if ($account && ! $cache->get('porro:cloudflare:no-intel')) {
+            try {
+                return $cloudflare->client()->intel((string) $account, $ip) + ['source' => 'Cloudflare IP Intelligence'];
+            } catch (CloudflareError $e) {
+                if (in_array($e->status, [401, 403], true)) {
+                    $cache->set('porro:cloudflare:no-intel', true, 86400);
+                }
+            }
+        }
+
+        return $cloudflare->client()->radar($ip) + ['network_type' => null, 'risks' => [], 'source' => 'Cloudflare Radar'];
     }
 
     /**

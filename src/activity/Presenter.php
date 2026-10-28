@@ -8,9 +8,12 @@ use Porro\Core\Activity\Countries;
 use Porro\Core\Activity\Entry;
 use Porro\Core\Activity\FlaggedIp;
 use Porro\Core\Activity\IpDetails;
+use Porro\Core\Activity\NginxBlocklist;
+use Porro\Core\Activity\NginxStatus;
 use Porro\Core\Activity\ProtectedRanges;
 use Porro\Core\Activity\Recorder;
 use Throwable;
+use yii\caching\FileCache;
 
 /**
  * Activity and blocklist data shaped for the control panel: labels,
@@ -134,8 +137,25 @@ class Presenter
             [$blocks, $safe, $failed] = [[], [], true];
         }
 
+        $cloudflare = $this->activity->cloudflare()->status();
+        $cloudflare['synced'] = $cloudflare['synced_at'] ? self::ago((int) $cloudflare['synced_at']) : null;
+        $nginxPath = $this->activity->nginxPath();
+        $servers = $this->activity->nginxServers()->present();
+
         return [
             'failed' => $failed,
+            'cloudflare' => $cloudflare,
+            'nginx' => [
+                'on' => $this->activity->nginxEnabled(),
+                'production' => $this->activity->isProduction(),
+                'written' => is_file($nginxPath) ? self::ago((int) filemtime($nginxPath)) : null,
+                'include' => "include {$nginxPath};",
+                'realIp' => NginxBlocklist::realIp($this->activity->ranges()),
+                'reload' => NginxStatus::reloadJob($nginxPath, $this->activity->nginxStamp()),
+                'sync' => '* * * * * cd '.Craft::getAlias('@root').' && php craft porro/blocklist > /dev/null 2>&1',
+                'servers' => $servers,
+                'loaded' => count(array_filter($servers, fn ($s) => $s['ok'])),
+            ],
             // The newest few; the rest are on the list's own page.
             'blocks' => array_map(fn (Entry $e) => $this->entry($e), array_slice(self::newestFirst($blocks), 0, self::PREVIEW)),
             'safe' => array_map(fn (Entry $e) => $this->entry($e), array_slice(self::newestFirst($safe), 0, self::PREVIEW)),
@@ -154,6 +174,74 @@ class Presenter
                 'env' => $list['optional'] ? Activity::PROTECT_ENV[$list['source']] ?? null : null,
             ], array_values(array_filter($this->activity->ranges()->about(), fn ($list) => $list['ranges'] !== [] || ! $list['on']))),
         ];
+    }
+
+    /**
+     * The nginx setup page: whether the site is behind Cloudflare (so the
+     * real IP lines come first), whether the cache is shared, without which
+     * only this server can be listed, and how far the servers have got.
+     *
+     * @return array<string, mixed>
+     */
+    public function nginx(?string $remoteAddr = null): array
+    {
+        $blocking = $this->blocking();
+        $nginx = $blocking['nginx'];
+        $ranges = $this->activity->ranges();
+
+        // Seen through Cloudflare: remember it, so the deny file carries the
+        // real IP lines without anyone having to set anything.
+        if ($remoteAddr !== null && $ranges->isCloudflare($remoteAddr)) {
+            Craft::$app->getCache()->set(Activity::BEHIND_CLOUDFLARE, true, 0);
+        }
+
+        $servers = $nginx['servers'];
+        $count = static fn (array $states) => count(array_filter($servers, fn ($s) => in_array($s['state'], $states, true)));
+
+        return [
+            'nginx' => $nginx,
+            'behindCloudflare' => $blocking['cloudflare']['configured'] || ($remoteAddr !== null && $ranges->isCloudflare($remoteAddr)),
+            'realIpInFile' => $this->activity->nginxRealIp(),
+            'sharedCache' => ! (Craft::$app->getCache() instanceof FileCache),
+            'example' => self::nginxExample($nginx['include']),
+            'progress' => [
+                'servers' => count($servers),
+                'included' => $count([NginxStatus::WAITING, NginxStatus::UNCONFIRMED, NginxStatus::LOADED]),
+                'loaded' => $count([NginxStatus::LOADED]),
+            ],
+        ];
+    }
+
+    /**
+     * A trimmed version of the site's nginx config, to show where the
+     * include goes: inside server { }, above the first location.
+     *
+     * @return list<array{line: string, add: bool}>
+     */
+    public static function nginxExample(string $include): array
+    {
+        try {
+            $host = parse_url((string) Craft::$app->getSites()->getPrimarySite()->getBaseUrl(), PHP_URL_HOST) ?: 'example.com';
+        } catch (Throwable) {
+            $host = 'example.com';
+        }
+
+        $lines = [
+            ['server {', false],
+            ['    listen 443 ssl;', false],
+            ["    server_name {$host};", false],
+            ['    root '.Craft::getAlias('@webroot').';', false],
+            ['', false],
+            ["    {$include}", true],
+            ['', false],
+            ['    location / {', false],
+            ['        try_files $uri $uri/ /index.php?$query_string;', false],
+            ['    }', false],
+            ['    # … the rest of the config stays as it is', false],
+            ['}', false],
+        ];
+
+        return array_map(fn ($l) => ['line' => $l[0], 'add' => $l[1]], $lines);
     }
 
     /**

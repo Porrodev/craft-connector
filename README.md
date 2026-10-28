@@ -41,7 +41,12 @@ Results are cached for five minutes, and the public data behind them for between
 
 **Activity** lists the IPs worth a look from the last 24 hours, worst first: probes for secrets and admin tools (`/.env`, `/.git/config`, `wp-login.php`, `phpmyadmin`…), failed control panel sign-ins, bursts of 404s and form floods. Each IP opens to its details: country, network, a reverse DNS name checked both ways, the Tor exit and Spamhaus DROP lists, and a plain note when something claiming to be Googlebot or Bingbot isn't. What it did here is drawn hour by hour, with its last requests.
 
-From there, or from **Blocking**, an IP or a range can be blocked for 7 days, 30 days or for good. Every block and safelist asks first, saying what will happen to whom. Blocked IPs get a plain 403 before Craft handles the request, on the front end and in the control panel. The blocklist and safelist are tables, so every server of a site shares them, and their own pages search by IP (an IP finds the ranges that cover it), reason or who added it, 50 a page.
+From there, or from **Blocking**, an IP or a range can be blocked for 7 days, 30 days or for good. Every block and safelist asks first, saying what will happen to whom. Blocked IPs get a plain 403 before Craft handles the request, on the front end and in the control panel, and can be turned away earlier too:
+
+- **At Cloudflare's edge**, for sites behind Cloudflare: set `PORRO_CLOUDFLARE_TOKEN` (a token with Account Filter Lists Edit, Zone WAF Edit and Zone Read) and run `php craft porro/cloudflare connect`. It finds the zone, creates a `porro_blocklist` list shared by your sites and adds one rule next to your existing ones. Changes sync from the queue; only production syncs.
+- **In nginx**, before PHP runs: Blocking → Set up nginx walks through it. `PORRO_BLOCK_NGINX=true`, a cron line running `porro/blocklist` every minute on each server, one `include` in the site's nginx config, and a root job that reloads nginx when the file changes and `nginx -t` passes. The page shows how far each server has got.
+
+The blocklist and safelist are tables, so every server of a site shares them, and their own pages search by IP (an IP finds the ranges that cover it), reason or who added it, 50 a page.
 
 Some addresses can never be blocked: Cloudflare, Laravel Forge and its health checks, Google's and Bing's published crawler ranges, and private and reserved ranges. **Always protected** on the Blocking page lists each, with why and where the addresses come from. Blocks that overlap them are refused.
 
@@ -111,6 +116,8 @@ Content, entries, assets, users, settings values or secrets. Run `php craft porr
 | `porro/cron` | Adds the cron line on its own, no key needed |
 | `porro/report` | Sends a report now (`--packages` forces the package list, `--deploy` for deploy scripts) |
 | `porro/status` | Shows what the next report contains (`--json` for the raw report) |
+| `porro/blocklist` | Tidies the blocklist and, in nginx mode, writes the deny file. Cron runs it every minute in nginx mode |
+| `porro/cloudflare [connect\|sync\|status\|disconnect]` | Blocks at Cloudflare's edge |
 
 ## Demo
 
@@ -127,6 +134,7 @@ Content, entries, assets, users, settings values or secrets. Run `php craft porr
 | `check.torproject.org`, `spamhaus.org` | The Tor exit list (hourly at most) and DROP lists (daily), when activity or an IP's details are shown | Nothing beyond the request |
 | `download.db-ip.com` | The free country file, monthly, in production | Nothing beyond the request |
 | DNS | Reverse and forward lookups when an IP's details are opened | The IP |
+| `api.cloudflare.com` | Only with `PORRO_CLOUDFLARE_TOKEN`: connecting, syncing the blocklist after changes and from cron, and an IP's network on its details page | Blocked addresses and their reasons; looked-up IPs |
 | `api.abuseipdb.com` | Only when someone clicks **Check on AbuseIPDB**, with `PORRO_ABUSEIPDB_KEY` set | The IP |
 
 Craft's own update check is Craft's, as usual. Requests go through Craft's Guzzle client, so proxy settings apply.
@@ -142,6 +150,11 @@ Craft's own update check is Craft's, as usual. Requests go through Craft's Guzzl
 | `PORRO_PROTECT_FORGE` | `true` | Keep Laravel Forge's addresses unblockable. Not on Forge? Set `false` |
 | `PORRO_PROTECT_CRAWLERS` | `true` | Keep Google's and Bing's crawlers unblockable |
 | `PORRO_ABUSEIPDB_KEY` | | Check an IP's reputation on request |
+| `PORRO_CLOUDFLARE_TOKEN` | | Block at Cloudflare's edge |
+| `PORRO_CLOUDFLARE_HOST` | the primary site's host | Which Cloudflare zone to connect to |
+| `PORRO_BLOCK_NGINX` | `false` | Write a deny file for nginx (production only) |
+| `PORRO_NGINX_PATH` | `storage/porro/nginx-blocklist.conf` | Where the deny file goes |
+| `PORRO_NGINX_REAL_IP` | on behind Cloudflare | Put Cloudflare's real IP lines in the deny file. Set `false` if your nginx config already sets `real_ip_header` |
 
 The rest goes in `config/porro.php`:
 
@@ -155,6 +168,9 @@ return [
     'served' => ['/backup.zip'],
     // When an IP is flagged: probes and failed logins per hour, 404s and form posts per 10 minutes.
     'thresholds' => ['probe' => 3, 'login_failed' => 10, 'not_found' => 60, 'post_flood' => 20],
+    // Where the nginx setup page looks for the include, and the reload job's stamp. The defaults suit Forge.
+    'nginxConfigDirs' => ['/etc/nginx/sites-enabled', '/etc/nginx/conf.d', '/etc/nginx/forge-conf'],
+    'nginxStamp' => '/var/tmp/porro-nginx.stamp',
 ];
 ```
 

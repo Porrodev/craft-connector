@@ -308,7 +308,7 @@ class SiteHealth extends Component
      *
      * @return Closure(string, string, array<string, string>, string|null, int, int): array{0: int, 1: string}
      */
-    private static function transport(): Closure
+    public static function transport(): Closure
     {
         return function (string $method, string $url, array $headers, ?string $body, int $timeout, int $maxBytes = Sources::MAX_BYTES): array {
             try {

@@ -76,6 +76,7 @@ class Plugin extends BasePlugin
             $event->rules['porro/activity'] = 'porro/activity/index';
             $event->rules['porro/activity/<ip:[0-9a-fA-F:.]+>'] = 'porro/activity/ip';
             $event->rules['porro/blocking'] = 'porro/blocking/index';
+            $event->rules['porro/blocking/nginx'] = 'porro/blocking/nginx';
             $event->rules['porro/blocking/<list:blocklist|safelist>'] = 'porro/blocking/list';
         });
 
