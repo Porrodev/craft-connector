@@ -230,7 +230,7 @@ class Presenter
             ['server {', false],
             ['    listen 443 ssl;', false],
             ["    server_name {$host};", false],
-            ['    root '.Craft::getAlias('@webroot').';', false],
+            ['    root '.NginxBlocklist::stablePath((string) Craft::getAlias('@webroot')).';', false],
             ['', false],
             ["    {$include}", true],
             ['', false],

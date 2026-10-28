@@ -71,6 +71,10 @@ jobs:
           CRAFT_MAJOR: ${{ matrix.craft }}
         run: vendor/bin/pest
 
+      - name: Craft's logs, when the tests fail
+        if: failure()
+        run: tail -n 150 app/storage/logs/*.log || true
+
       - name: Lint
         if: matrix.php == '8.4' && matrix.craft == '5'
         working-directory: plugin
