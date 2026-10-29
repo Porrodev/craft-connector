@@ -321,11 +321,12 @@ class Activity extends Component
     }
 
     /**
-     * The visitor's country when Cloudflare sent it: free, no lookup.
+     * True when the request came through Cloudflare, including through
+     * Cloudflare and then a load balancer that trustedHosts names.
      */
     public function viaCloudflare(Request $request): bool
     {
-        return $this->ranges()->isCloudflare((string) $request->getRemoteIP());
+        return $this->ranges()->isCloudflare($this->peer($request));
     }
 
     /**
