@@ -3,7 +3,7 @@
     "description": "Site health, suspicious activity and IP blocking for Craft CMS 4–5, in the control panel: security advisories, end-of-life PHP and Craft, updates, dev mode, migrations and the queue, plus probes, failed sign-ins and form floods, blocked in Craft, at Cloudflare or in nginx. Free; connect Porro to add uptime, SSL, domain and server checks.",
     "type": "craft-plugin",
     "license": "MIT",
-    "homepage": "https://porro.dev",
+    "homepage": "https://porro.dev/?utm_source=craft-connector&utm_medium=packagist&utm_campaign=connectors",
     "keywords": [
         "craft",
         "craftcms",
@@ -47,7 +47,7 @@
         "handle": "porro",
         "name": "Porro Site Health",
         "developer": "Porro",
-        "developerUrl": "https://porro.dev",
+        "developerUrl": "https://porro.dev/?utm_source=craft-connector&utm_medium=plugin-store&utm_campaign=connectors",
         "documentationUrl": "https://github.com/Porrodev/craft-connector",
         "class": "porro\\craft\\Plugin",
         "description": "Site health, suspicious activity and IP blocking in your control panel: advisories, end-of-life versions and updates, plus probes and failed sign-ins, blocked in Craft, at Cloudflare or in nginx. Free; connect Porro for uptime, SSL, domain and server checks too.",
