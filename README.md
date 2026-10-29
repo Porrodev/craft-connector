@@ -1,10 +1,12 @@
 # Porro Site Health for Craft CMS
 
+![Porro for Craft CMS: know it's healthy, keep bad bots out. Site health, suspicious activity and blocking in the control panel, free for Craft CMS 4 and 5](https://raw.githubusercontent.com/Porrodev/craft-connector/main/docs/images/hero.png)
+
 Site health, suspicious activity and blocking for Craft CMS 4 and 5, inside the control panel. It checks the site for the things that quietly go wrong between projects (security advisories in your Composer packages, PHP and Craft versions running out of security support, Craft and plugin updates, dev mode left on, migrations not run, a stuck queue) and tells you what to do about each. It also spots who's probing the site for secrets, trying passwords or flooding its forms, and lets you block them in a click.
 
 It's free and works on its own. If you use [Porro](https://porro.dev/?utm_source=craft-connector&utm_medium=readme&utm_campaign=connectors) to look after your sites, connecting it adds what can only be seen from outside: uptime, SSL certificates, domain expiry and the server's operating system.
 
-![Porro Site Health in the Craft control panel on a site that isn't connected to Porro: a migration not run, a stuck queue and two failed jobs, with the commands that fix them](docs/images/craft-site-health.png)
+![Porro Site Health in the Craft control panel on a site that isn't connected to Porro: a migration not run, a stuck queue and two failed jobs, with the commands that fix them](https://raw.githubusercontent.com/Porrodev/craft-connector/main/docs/images/craft-site-health.png)
 
 ## Install
 
@@ -17,7 +19,7 @@ php craft plugin/install porro
 
 Then open **Porro** in the control panel nav: **Site health**, **Activity** and **Blocking**. There's a dashboard widget too (New widget → Porro Site Health). It shows the last result rather than running the checks, so the dashboard never waits on them.
 
-<img src="docs/images/craft-widget.png" alt="The Porro Site Health dashboard widget" width="320">
+<img src="https://raw.githubusercontent.com/Porrodev/craft-connector/main/docs/images/craft-widget.png" alt="The Porro Site Health dashboard widget" width="320">
 
 ### Who can see it
 
@@ -39,11 +41,11 @@ Results are cached for five minutes, and the public data behind them for between
 
 ## Suspicious activity and blocking
 
-![Porro → Activity in the Craft control panel: the suspicious activity summary and the IPs worth a look, each with Block 7 days, Block permanently and Safelist buttons](docs/images/craft-activity.png)
+![Porro → Activity in the Craft control panel: the suspicious activity summary and the IPs worth a look, each with Block 7 days, Block permanently and Safelist buttons](https://raw.githubusercontent.com/Porrodev/craft-connector/main/docs/images/craft-activity.png)
 
 **Activity** lists the IPs worth a look from the last 24 hours, worst first: probes for secrets and admin tools (`/.env`, `/.git/config`, `wp-login.php`, `phpmyadmin`…), failed control panel sign-ins, bursts of 404s and form floods. Each IP opens to its details: country, network, a reverse DNS name checked both ways, the Tor exit and Spamhaus DROP lists, and a plain note when something claiming to be Googlebot or Bingbot isn't. What it did here is drawn hour by hour, with its last requests.
 
-![IP details in the Craft control panel: an address pretending to be Googlebot, caught by its hostname, with buttons to block or safelist it](docs/images/craft-ip-details.png)
+![IP details in the Craft control panel: an address pretending to be Googlebot, caught by its hostname, with buttons to block or safelist it](https://raw.githubusercontent.com/Porrodev/craft-connector/main/docs/images/craft-ip-details.png)
 
 From there, or from **Blocking**, an IP or a range can be blocked for 7 days, 30 days or for good. Every block and safelist asks first, saying what will happen to whom. Blocked IPs get a plain 403 before Craft handles the request, on the front end and in the control panel, and can be turned away earlier too:
 
@@ -52,7 +54,7 @@ From there, or from **Blocking**, an IP or a range can be blocked for 7 days, 30
 
 The blocklist and safelist are tables, so every server of a site shares them, and their own pages search by IP (an IP finds the ranges that cover it), reason or who added it, 50 a page.
 
-![Porro → Blocking in the Craft control panel: blocking in Craft, at Cloudflare and in nginx, above the blocklist](docs/images/craft-blocking.png)
+![Porro → Blocking in the Craft control panel: blocking in Craft, at Cloudflare and in nginx, above the blocklist](https://raw.githubusercontent.com/Porrodev/craft-connector/main/docs/images/craft-blocking.png)
 
 Some addresses can never be blocked: Cloudflare, Laravel Forge and its health checks, Google's and Bing's published crawler ranges, and private and reserved ranges. **Always protected** on the Blocking page lists each, with why and where the addresses come from. Blocks that overlap them are refused.
 
@@ -72,7 +74,7 @@ php craft porro/connect <site key>
 
 The Porro Site Health page then shows the site's open findings in Porro alongside the checks above, each linking to Porro.
 
-![Porro Site Health connected to Porro: an end-of-life server, an expiring certificate and domain, and a slow region, above the checks run on the site](docs/images/craft-site-health-connected.png) Connecting also sends Porro one signed report about the site every 15 minutes. It's read-only: it never changes the site and never accepts commands, and Porro never connects in.
+![Porro Site Health connected to Porro: an end-of-life server, an expiring certificate and domain, and a slow region, above the checks run on the site](https://raw.githubusercontent.com/Porrodev/craft-connector/main/docs/images/craft-site-health-connected.png) Connecting also sends Porro one signed report about the site every 15 minutes. It's read-only: it never changes the site and never accepts commands, and Porro never connects in.
 
 `porro/connect` saves `PORRO_KEY` to `.env` and sends the first report. Reports then go every 15 minutes from cron. `porro/connect` offers to add the line to the server's crontab for you, with the right PHP binary and project folder, and never adds it twice. If it can't, it prints the line to paste into Forge, Ploi or `crontab -e`:
 
