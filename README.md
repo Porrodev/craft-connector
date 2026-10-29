@@ -2,7 +2,7 @@
 
 Site health, suspicious activity and blocking for Craft CMS 4 and 5, inside the control panel. It checks the site for the things that quietly go wrong between projects (security advisories in your Composer packages, PHP and Craft versions running out of security support, Craft and plugin updates, dev mode left on, migrations not run, a stuck queue) and tells you what to do about each. It also spots who's probing the site for secrets, trying passwords or flooding its forms, and lets you block them in a click.
 
-It's free and works on its own. If you use [Porro](https://porro.dev) to look after your sites, connecting it adds what can only be seen from outside: uptime, SSL certificates, domain expiry and the server's operating system.
+It's free and works on its own. If you use [Porro](https://porro.dev/?utm_source=craft-connector&utm_medium=readme&utm_campaign=connectors) to look after your sites, connecting it adds what can only be seen from outside: uptime, SSL certificates, domain expiry and the server's operating system.
 
 ![Porro Site Health in the Craft control panel on a site that isn't connected to Porro: a migration not run, a stuck queue and two failed jobs, with the commands that fix them](docs/images/craft-site-health.png)
 
@@ -64,7 +64,7 @@ A suspicious request never writes to the database: it appends one short line to 
 
 ## Connect Porro (optional)
 
-Porro watches every site you look after from outside: uptime from several regions, SSL and domain expiry, the server's OS and security updates, with alerts by email or Slack. It's a separate service with its own account; see [porro.dev](https://porro.dev) for plans. Nothing in this plugin needs it, and nothing is sent to Porro until you connect. Add the site in Porro and copy its site key, then:
+Porro watches every site you look after from outside: uptime from several regions, SSL and domain expiry, the server's OS and security updates, with alerts by email or Slack. It's a separate service with its own account; see [porro.dev](https://porro.dev/?utm_source=craft-connector&utm_medium=readme&utm_campaign=connectors) for plans. Nothing in this plugin needs it, and nothing is sent to Porro until you connect. Add the site in Porro and copy its site key, then:
 
 ```bash
 php craft porro/connect <site key>
