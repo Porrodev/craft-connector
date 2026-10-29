@@ -1,6 +1,6 @@
 # Porro Site Health for Craft CMS
 
-![Porro for Craft CMS: know it's healthy, keep bad bots out. Site health, suspicious activity and blocking in the control panel, free for Craft CMS 4 and 5](https://raw.githubusercontent.com/Porrodev/craft-connector/main/docs/images/hero.png)
+![Site health for Craft CMS, free in the control panel: health, activity and blocking, beside the real Porro Site Health page](https://raw.githubusercontent.com/Porrodev/craft-connector/main/docs/images/header.png)
 
 Site health, suspicious activity and blocking for Craft CMS 4 and 5, inside the control panel. It checks the site for the things that quietly go wrong between projects (security advisories in your Composer packages, PHP and Craft versions running out of security support, Craft and plugin updates, dev mode left on, migrations not run, a stuck queue) and tells you what to do about each. It also spots who's probing the site for secrets, trying passwords or flooding its forms, and lets you block them in a click.
 
