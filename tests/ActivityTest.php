@@ -141,3 +141,19 @@ it('turns away an address that isn’t an IP', function () {
 
     expect($status)->toBe(404);
 });
+
+it('counts a request as through Cloudflare when a trusted load balancer sits behind it', function () {
+    $site = proxiedSite();
+
+    // Cloudflare (173.245.48.1) → the trusted proxy at 127.0.0.1 → Craft.
+    foreach (['/.env', '/.git/config', '/wp-login.php'] as $path) {
+        http("{$site}{$path}", null, null, ['X-Forwarded-For: 173.245.48.1', 'CF-Connecting-IP: 45.83.64.31']);
+    }
+    blocking('flush');
+
+    [, $html] = http("{$site}/index.php?p=admin/porro/activity/45.83.64.31", logIn($site));
+
+    expect($html)->toContain('45.83.64.31')
+        ->toContain('through Cloudflare')
+        ->not->toContain('straight to the server');
+});
