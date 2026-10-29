@@ -1,5 +1,9 @@
 # Release Notes for Porro Site Health
 
+## 0.3.6 - 2026-10-29
+
+- With Cloudflare in front of a load balancer that `trustedHosts` names, requests are now counted as through Cloudflare instead of straight to the server, on an IP's page and in what's recorded. Visitor IPs and blocking were already right.
+
 ## 0.3.5 - 2026-10-29
 
 - Links to porro.dev from the README, the Plugin Store listing and the control panel now carry UTM params, so Porro can tell which connector a visit came from.
