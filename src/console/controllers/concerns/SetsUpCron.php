@@ -30,9 +30,10 @@ trait SetsUpCron
 
     /**
      * Reports go from cron. Add the line for the agency when the server
-     * allows, otherwise show it to copy.
+     * allows, otherwise show it to copy. Returns whether cron runs
+     * porro/report, or now will.
      */
-    protected function setUpCron(bool $ask, bool $skip = false, bool $force = false): void
+    protected function setUpCron(bool $ask, bool $skip = false, bool $force = false): bool
     {
         $command = 'craft porro/report --scheduled';
         $directory = (string) Craft::getAlias('@root');
@@ -42,7 +43,7 @@ trait SetsUpCron
         if (Cron::isScheduled($directory, 'craft porro/report', $io) === true) {
             $this->stdout('Found porro/report in this server’s cron. The first scheduled report is due by '.date('H:i', (intdiv((int) floor(time() / 60), 15) + 1) * 900).', then every 15 minutes.'.PHP_EOL);
 
-            return;
+            return true;
         }
 
         $crontab = Cron::current($io);
@@ -59,7 +60,7 @@ trait SetsUpCron
         if ($result === CronResult::Installed || $result === CronResult::AlreadyInstalled) {
             $this->stdout('Added to this server’s crontab. Reports will go every 15 minutes.'.PHP_EOL);
 
-            return;
+            return true;
         }
 
         if ($result === CronResult::Failed || $result === CronResult::Unavailable) {
@@ -68,5 +69,7 @@ trait SetsUpCron
 
         $this->stdout(PHP_EOL.'One step left: add this cron line so reports keep coming. On Forge or Ploi add it as a scheduled job; anywhere else, run `crontab -e`.'.PHP_EOL);
         $this->stdout("  {$line}".PHP_EOL);
+
+        return false;
     }
 }

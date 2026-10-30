@@ -157,14 +157,57 @@ it('adds the cron line with porro/cron, without the site key, and only once', fu
     $file = tempnam(sys_get_temp_dir(), 'crontab');
     file_put_contents($file, "0 3 * * * /usr/bin/backup\n");
 
-    [$code, $output] = craft(['porro/cron'], ['PORRO_CRONTAB_FILE' => $file]);
-    craft(['porro/cron'], ['PORRO_CRONTAB_FILE' => $file]);
+    // Earlier tests saved a key to .env; take it out for this one.
+    [$code, $output] = withDotEnv(['PORRO_KEY' => null], function () use ($file) {
+        $first = craft(['porro/cron'], ['PORRO_CRONTAB_FILE' => $file]);
+        craft(['porro/cron'], ['PORRO_CRONTAB_FILE' => $file]);
+
+        return $first;
+    });
 
     expect($code)->toBe(0, $output)
         ->and($output)->toContain('Added to this server’s crontab')
+        ->and($output)->toContain('No PORRO_KEY set, so no report sent')
         ->and(file_get_contents($file))->toStartWith("0 3 * * * /usr/bin/backup\n")
         ->and(substr_count(file_get_contents($file), 'craft porro/report --scheduled'))->toBe(1)
         ->and(reports())->toBe([]);
+});
+
+it('sends a report from porro/cron once the line is added, so Porro stops saying cron is missing', function () {
+    $porro = porro();
+    $file = tempnam(sys_get_temp_dir(), 'crontab');
+
+    [$code, $output] = withDotEnv(['PORRO_KEY' => $porro['key'], 'PORRO_URL' => $porro['url']], fn () => craft(['porro/cron'], ['PORRO_CRONTAB_FILE' => $file]));
+
+    expect($code)->toBe(0, $output)
+        ->and($output)->toContain('Added to this server’s crontab')
+        ->and($output)->toContain('Told Porro cron runs porro/report')
+        ->and(reports())->toHaveCount(1)
+        ->and(reports()[0]['trigger'])->toBe('connect')
+        ->and(reports()[0]['health'])->toMatchArray(['scheduler_in_crontab' => true]);
+});
+
+it('sends a report from porro/cron when cron already runs porro/report', function () {
+    $porro = porro();
+    $file = tempnam(sys_get_temp_dir(), 'crontab');
+    file_put_contents($file, '*/15 * * * * cd '.craftPath().' && php craft porro/report --scheduled'."\n");
+
+    [$code, $output] = withDotEnv(['PORRO_KEY' => $porro['key'], 'PORRO_URL' => $porro['url']], fn () => craft(['porro/cron'], ['PORRO_CRONTAB_FILE' => $file]));
+
+    expect($code)->toBe(0, $output)
+        ->and($output)->toContain('Found porro/report in this server’s cron')
+        ->and(reports()[0]['health'])->toMatchArray(['scheduler_in_crontab' => true]);
+});
+
+it('keeps porro/cron working when Porro can not be reached', function () {
+    $file = tempnam(sys_get_temp_dir(), 'crontab');
+
+    // Craft 4's .env wins over the process environment, so change it there.
+    [$code, $output] = withDotEnv(['PORRO_KEY' => porro()['key'], 'PORRO_URL' => 'http://127.0.0.1:'.freePort()], fn () => craft(['porro/cron'], ['PORRO_CRONTAB_FILE' => $file]));
+
+    expect($code)->toBe(0, $output)
+        ->and($output)->toContain('Added to this server’s crontab')
+        ->and($output)->toContain('Couldn’t send a report to Porro');
 });
 
 it('adds cron from connect when asked to', function () {
@@ -187,3 +230,29 @@ it('tells Porro whether cron already runs porro/report', function () {
     expect($code)->toBe(0)
         ->and(reports()[0]['health'])->toMatchArray(['scheduler_in_crontab' => true, 'report_interval' => 15]);
 });
+
+/**
+ * Runs $run with these values in the Craft install's .env (null removes
+ * one), then puts the file back.
+ *
+ * @param  array<string, string|null>  $values
+ */
+function withDotEnv(array $values, callable $run): mixed
+{
+    $path = craftPath().'/.env';
+    $original = (string) file_get_contents($path);
+    $env = $original;
+
+    foreach ($values as $name => $value) {
+        $env = (string) preg_replace("/^{$name}=.*\n?/m", '', $env);
+        $env = $value === null ? $env : rtrim($env, "\n")."\n{$name}={$value}\n";
+    }
+
+    file_put_contents($path, $env);
+
+    try {
+        return $run();
+    } finally {
+        file_put_contents($path, $original);
+    }
+}
