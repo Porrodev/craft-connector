@@ -76,13 +76,99 @@ The Porro Site Health page then shows the site's open findings in Porro alongsid
 
 ![Porro Site Health connected to Porro: an end-of-life server, an expiring certificate and domain, and a slow region, above the checks run on the site](https://raw.githubusercontent.com/Porrodev/craft-connector/main/docs/images/craft-site-health-connected.png) Connecting also sends Porro one signed report about the site every 15 minutes. It's read-only: it never changes the site and never accepts commands, and Porro never connects in.
 
-`porro/connect` saves `PORRO_KEY` to `.env` and sends the first report. Reports then go every 15 minutes from cron. `porro/connect` offers to add the line to the server's crontab for you, with the right PHP binary and project folder, and never adds it twice. If it can't, it prints the line to paste into Forge, Ploi or `crontab -e`:
+`porro/connect` saves `PORRO_KEY` to `.env` and sends the first report. Reports then go every 15 minutes from cron. `porro/connect` offers to add the line to the server's crontab for you, from the project folder (the `current` folder on zero-downtime deploys), and never adds it twice. If it can't, it prints the line to add yourself. See [Scheduling reports](#scheduling-reports) for Forge, Ploi, Servd, Craft Cloud and other hosts:
 
 ```
 */15 * * * * cd /path/to/site && php craft porro/report --scheduled > /dev/null 2>&1
 ```
 
-Use `--cron` to add it without asking (handy in provisioning scripts) or `--no-cron` to leave the crontab alone. Skipped it, or connected from another machine? Run `php craft porro/cron` on the server; it needs no key. Add `php craft porro/report --deploy` to your deploy script so Porro hears about deploys straight away.
+Use `--cron` to add it without asking (handy in provisioning scripts) or `--no-cron` to leave the crontab alone. Skipped it, or connected from another machine? Run `php craft porro/cron` on the server; it needs no key, and once the site is connected it sends a report straight away. Add `php craft porro/report --deploy` to your deploy script so Porro hears about deploys straight away.
+
+## Scheduling reports
+
+Cron needs to run `php craft porro/report --scheduled` from the project folder every 15 minutes.
+
+`php craft porro/cron` adds the line to the server's crontab for you, or tells you it's already there. Once the site is connected it also sends a report straight away, so Porro stops saying cron is missing without waiting 15 minutes. If it can't reach the crontab, it prints the line to add by hand, using one of the guides below.
+
+**Zero-downtime deploys** (Forge, Envoyer, Ploi, Deployer): always point cron at the `current` folder, e.g. `/home/forge/example.com/current`, never a `releases/…` folder. A release folder runs old code after the next deploy and stops working once it's cleaned up, with no error you'd see. `porro/cron` uses `current` for you.
+
+<details>
+<summary>Laravel Forge</summary>
+
+Go to the server's **Scheduler** and add a **New scheduled job**:
+
+- **Command:** `php /home/forge/example.com/current/craft porro/report --scheduled`. Leave out `/current` if the site doesn't use zero-downtime deploys. On an isolated site, use the site's own user in the path.
+- **User:** `forge`, or the site's isolated user. Never `root`.
+- **Frequency:** custom, `*/15 * * * *`.
+
+If you add sites through Porro's one-click install on Forge, it adds this job for you when the Forge API token has the optional `server:create-schedulers` scope.
+
+</details>
+
+<details>
+<summary>Ploi</summary>
+
+Open the server's **Cronjobs** and add one:
+
+- **Command:** `php /home/ploi/example.com/craft porro/report --scheduled`, with `/current` before `/craft` on zero-downtime sites.
+- **User:** `ploi`, or the site's own user.
+- **Frequency:** custom, `*/15 * * * *`.
+
+</details>
+
+<details>
+<summary>Servd</summary>
+
+There's no crontab. Open the project's **Commands** page for Production (and Staging if you report from it), and under **Scheduled Craft CLI Commands** add:
+
+- **Command:** `porro/report --scheduled`. Leave out `./craft`; Servd adds it.
+- **Schedule:** `*/15 * * * *`.
+
+Then sync the project so the command goes live. Servd runs scheduled commands in UTC, and how many you can have depends on the plan. Set `PORRO_KEY` in the environment's variables rather than running `porro/connect` there.
+
+</details>
+
+<details>
+<summary>Craft Cloud</summary>
+
+There's no crontab. Open the environment's **Commands** screen and click **Create** under **Scheduled Commands**:
+
+- **Command:** `porro/report --scheduled` (everything after `craft`).
+- **Cron expression:** `*/15 * * * *`. Cloud runs scheduled commands at most every 15 minutes, which is what Porro expects.
+
+Scheduled commands can't be edited, only deleted and created again. Set `PORRO_KEY` in the environment's variables rather than running `porro/connect` there.
+
+</details>
+
+<details>
+<summary>Envoyer</summary>
+
+Envoyer deploys but doesn't run cron. Add the job on the server itself (Forge's Scheduler, or `crontab -e`), pointing at Envoyer's `current` folder: `php /home/forge/example.com/current/craft porro/report --scheduled`, every 15 minutes.
+
+</details>
+
+<details>
+<summary>cPanel or Plesk</summary>
+
+- **cPanel:** **Advanced → Cron Jobs**. Set the minute to `*/15` and every other field to `*`, and use `cd /home/user/example.com && php craft porro/report --scheduled > /dev/null 2>&1`.
+- **Plesk:** **Websites & Domains → Scheduled Tasks → Add Task**. Choose **Run a command**, **Cron style** `*/15 * * * *`, and the same command.
+
+If `php` isn't found, or runs an older PHP than the site, use the full path your host lists for the site's PHP version.
+
+</details>
+
+<details>
+<summary>Any other server (crontab)</summary>
+
+Run `crontab -e` as the user that owns the site (not root) and add:
+
+```
+*/15 * * * * cd /path/to/site && php craft porro/report --scheduled > /dev/null 2>&1
+```
+
+Use the `current` path on zero-downtime deploys.
+
+</details>
 
 ## Reports
 
@@ -94,7 +180,7 @@ Each report says what sent it, so Porro can tell when cron has stopped:
 | `deploy` | `php craft porro/report --deploy` in your deploy script. Never fails the deploy |
 | `cp` | A backup for a missing cron line: a logged-in control panel visit, when no report has gone in the last 15 minutes |
 | `event` | Straight after a plugin is installed, updated or removed, or Craft is updated |
-| `connect`, `manual` | `porro/connect`, or running `porro/report` by hand |
+| `connect`, `manual` | `porro/connect` or `porro/cron`, or running `porro/report` by hand |
 
 Control panel reports are a backup, not a replacement for cron: a quiet site with nobody logging in sends nothing, and Porro still flags a cron line that has stopped. They follow a few rules so the control panel never slows down or breaks because of Porro:
 
@@ -123,7 +209,7 @@ Content, entries, assets, users, settings values or secrets. Run `php craft porr
 | Command | Does |
 |---|---|
 | `porro/connect <key>` | Saves the key, sends the first report and sets up cron (`--cron`, `--no-cron`, `--url`) |
-| `porro/cron` | Adds the cron line on its own, no key needed |
+| `porro/cron` | Adds the cron line on its own, no key needed. Sends a report straight away once connected |
 | `porro/report` | Sends a report now (`--packages` forces the package list, `--deploy` for deploy scripts) |
 | `porro/status` | Shows what the next report contains (`--json` for the raw report) |
 | `porro/blocklist` | Tidies the blocklist and, in nginx mode, writes the deny file. Cron runs it every minute in nginx mode |

@@ -1,5 +1,11 @@
 # Release Notes for Porro Site Health
 
+## Unreleased
+
+- `php craft porro/cron` sends a report straight away once the cron line is added or found and the site is connected, so Porro stops saying cron is missing without waiting 15 minutes. With no `PORRO_KEY` it says so and sends nothing.
+- With `porro/php-core` 0.3.6, the cron line points at the `current` folder on zero-downtime deploys rather than the release folder, which broke after the next deploy. It runs plain `php`, so a PHP upgrade doesn't break it, and a stale line Porro added earlier is replaced rather than joined by a second.
+- The README has a Scheduling reports section: how to run `porro/report` on Forge, Ploi, Servd, Craft Cloud, Envoyer, cPanel, Plesk and plain servers.
+
 ## 0.3.6 - 2026-10-29
 
 - With Cloudflare in front of a load balancer that `trustedHosts` names, requests are now counted as through Cloudflare instead of straight to the server, on an IP's page and in what's recorded. Visitor IPs and blocking were already right.
