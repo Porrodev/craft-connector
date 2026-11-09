@@ -1,0 +1,12 @@
+includes:
+    - vendor/1994/coding-standard/phpstan/base.neon
+    - phpstan-baseline.neon
+
+parameters:
+    level: 6
+    paths:
+        - src
+    # Craft and Yii load these classes at boot rather than through Composer.
+    scanFiles:
+        - vendor/yiisoft/yii2/Yii.php
+        - vendor/craftcms/cms/src/Craft.php
