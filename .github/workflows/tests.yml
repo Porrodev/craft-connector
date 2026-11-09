@@ -46,6 +46,9 @@ jobs:
           composer create-project "craftcms/craft:^${{ matrix.craft }}.0" app --no-interaction --no-scripts --no-progress
           cd app
           composer config audit.block-insecure false
+          # The starter project's dev-only generator 2.x needs Craft 5, which
+          # blocks a Craft 4 build. Nothing here uses it.
+          composer remove --dev craftcms/generator --no-update
           composer config repositories.plugin '{"type": "path", "url": "../plugin", "options": {"symlink": true, "versions": {"porro/craft-connector": "0.1.0"}}}'
           composer config allow-plugins.craftcms/plugin-installer true
           composer require "craftcms/cms:^${{ matrix.craft }}.0" porro/craft-connector:0.1.0 --with-all-dependencies --no-interaction --no-progress
