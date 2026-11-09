@@ -84,6 +84,24 @@ The Porro Site Health page then shows the site's open findings in Porro alongsid
 
 Use `--cron` to add it without asking (handy in provisioning scripts) or `--no-cron` to leave the crontab alone. Skipped it, or connected from another machine? Run `php craft porro/cron` on the server; it needs no key, and once the site is connected it sends a report straight away. Add `php craft porro/report --deploy` to your deploy script so Porro hears about deploys straight away.
 
+## Sign in from Porro
+
+Once the site is connected, Porro members can open the site's control panel from its page in Porro with **Sign in to Craft**, without a password. It needs **Sign in to client sites** turned on for the workspace in Porro, and porro/craft-connector 0.4.0 or later.
+
+1. Porro sends the member's browser to `POST /porro/sign-in` on the front-end site with a one-time ticket that lasts 60 seconds.
+2. The site checks the ticket with Porro, server to server, signed with its own site key, and Porro answers with the member's email.
+3. The site signs in the Craft user with that email (in any case) and opens the dashboard.
+
+It only signs in users who already exist here, are active and can use the control panel (the **Access the control panel** permission, or admins). It never creates accounts or changes permissions: a member without an account gets a page saying so, and if more than one account uses the email, nobody is signed in. If someone else is already signed in in that browser, the site asks before switching accounts. A used or expired link, sign-in turned off, or Porro being unreachable each get a plain page explaining what to do. The route takes 10 tries a minute from one IP.
+
+Signing in this way skips Craft's own two-step verification and relies on the member's Porro sign-in instead. It doesn't count as having just typed the password, so changing an email or password still asks for it.
+
+To turn it off on this site, whatever Porro says:
+
+```env
+PORRO_SIGN_IN=false
+```
+
 ## Scheduling reports
 
 Cron needs to run `php craft porro/report --scheduled` from the project folder every 15 minutes.
@@ -225,7 +243,7 @@ Content, entries, assets, users, settings values or secrets. Run `php craft porr
 |---|---|---|
 | `packagist.org` | Advisory check, at most every 6 hours or when `composer.lock` changes | Package names from `composer.lock` |
 | `endoflife.date` | Support dates, at most once a day | Nothing beyond the request |
-| `app.porro.dev` | Only once connected: reports every 15 minutes, findings when the Porro Site Health page is open (cached 5 minutes) | Signed with the site key |
+| `app.porro.dev` | Only once connected: reports every 15 minutes, findings when the Porro Site Health page is open (cached 5 minutes), and a sign-in ticket when someone signs in from Porro | Signed with the site key |
 | Cloudflare, Google, Bing, Forge | Always-protected ranges, at most once a day, from cron or when Activity or Blocking is opened. A copy ships with the plugin. | Nothing beyond the request |
 | `check.torproject.org`, `spamhaus.org` | The Tor exit list (hourly at most) and DROP lists (daily), when activity or an IP's details are shown | Nothing beyond the request |
 | `download.db-ip.com` | The free country file, monthly, in production | Nothing beyond the request |
@@ -241,6 +259,7 @@ Craft's own update check is Craft's, as usual. Requests go through Craft's Guzzl
 |---|---|---|
 | `PORRO_KEY` | | The site key |
 | `PORRO_ENABLED` | unset | `true` or `false` to force reporting on or off |
+| `PORRO_SIGN_IN` | `true` | Let Porro members [sign in from Porro](#sign-in-from-porro). `false` turns it off here |
 | `PORRO_ACTIVITY` | production only | Record suspicious activity |
 | `PORRO_ACTIVITY_BUFFER` | `storage/runtime/porro/activity.buf` | Where this server keeps suspicious requests until they're recorded. `false` records each one straight away |
 | `PORRO_BLOCK_APP` | `true` | Turn blocked IPs away with a 403 |
