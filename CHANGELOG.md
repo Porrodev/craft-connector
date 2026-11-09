@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Sign in from Porro**: with Porro's **Sign in to client sites** on, **Sign in to Craft** on the site page in Porro opens the control panel signed in, without a password. Porro posts a one-time, 60-second ticket to `/porro/sign-in`; the site redeems it with Porro using its own site key and signs in the Craft user with the member's email. It never creates users or changes permissions, only signs in active users who can use the control panel, signs in nobody when two accounts share the email, and asks before switching someone already signed in as another user. It skips Craft's two-step verification, relying on Porro's sign-in, and doesn't elevate the session. `PORRO_SIGN_IN=false` turns it off on the site.
 - `php craft porro/cron` sends a report straight away once the cron line is added or found and the site is connected, so Porro stops saying cron is missing without waiting 15 minutes. With no `PORRO_KEY` it says so and sends nothing.
 - With `porro/php-core` 0.3.6, the cron line points at the `current` folder on zero-downtime deploys rather than the release folder, which broke after the next deploy. It runs plain `php`, so a PHP upgrade doesn't break it, and a stale line Porro added earlier is replaced rather than joined by a second.
 - The README has a Scheduling reports section: how to run `porro/report` on Forge, Ploi, Servd, Craft Cloud, Envoyer, cPanel, Plesk and plain servers.

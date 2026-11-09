@@ -1,0 +1,99 @@
+{# Shown when signing in from Porro doesn't work. A plain page of its own:
+   no control panel scripts or styles, as the visitor isn't signed in. #}
+{% set messages = {
+    expired: {
+        title: 'This sign-in link has expired'|t('porro'),
+        body: 'Links from Porro work once and only for 60 seconds. Go back to the site in Porro and choose Sign in again.'|t('porro'),
+    },
+    no_account: {
+        title: 'No control panel account for you here'|t('porro'),
+        body: 'This site has no Craft user with the email {email}. Ask whoever manages the site to add you, then choose Sign in again in Porro.'|t('porro', {email: email}),
+    },
+    not_active: {
+        title: 'Your account can’t sign in here'|t('porro'),
+        body: 'The Craft user {email} is suspended, pending or deactivated on this site. Ask whoever manages the site to check the account.'|t('porro', {email: email}),
+    },
+    no_cp_access: {
+        title: 'Your account can’t use the control panel'|t('porro'),
+        body: 'The Craft user {email} doesn’t have the “Access the control panel” permission on this site. Ask whoever manages the site to give you or your user group that permission.'|t('porro', {email: email}),
+    },
+    ambiguous: {
+        title: 'More than one account uses this email'|t('porro'),
+        body: 'More than one account on this site uses this email, so Porro can’t tell which to sign in. Ask a site admin to fix it.'|t('porro'),
+    },
+    switch: {
+        title: 'Switch accounts?'|t('porro'),
+        body: 'You’re signed in as {current}. Switch to {new}?'|t('porro', {current: current ?? '', new: email}),
+    },
+    switch_expired: {
+        title: 'This switch has expired'|t('porro'),
+        body: 'Switching accounts works once, within 5 minutes, in the browser that was asked. Go back to the site in Porro and choose Sign in again.'|t('porro'),
+    },
+    not_signed_in: {
+        title: 'Craft didn’t sign you in'|t('porro'),
+        body: 'Craft wouldn’t start a session for {email} from this browser. Sign in with your password instead.'|t('porro', {email: email}),
+    },
+    turned_off_in_porro: {
+        title: 'Sign-in from Porro is turned off'|t('porro'),
+        body: 'Signing in to client sites is turned off for this site in Porro. A workspace admin can turn it on in Porro’s settings.'|t('porro'),
+    },
+    turned_off_here: {
+        title: 'Sign-in from Porro is turned off'|t('porro'),
+        body: 'This site has turned off signing in from Porro (PORRO_SIGN_IN=false). Sign in with your password instead.'|t('porro'),
+    },
+    not_connected: {
+        title: 'This site isn’t connected to Porro'|t('porro'),
+        body: 'The site has no Porro site key, so it can’t check the link with Porro. Sign in with your password instead.'|t('porro'),
+    },
+    key_refused: {
+        title: 'Porro didn’t accept this site’s key'|t('porro'),
+        body: 'The site key in this site’s .env doesn’t match the one in Porro. Run php craft porro/connect with the key from the site page in Porro, then try again.'|t('porro'),
+    },
+    too_many: {
+        title: 'Too many tries'|t('porro'),
+        body: 'There have been too many sign-in tries from here in the last minute. Wait a minute, then go back to the site in Porro and choose Sign in again.'|t('porro'),
+    },
+    unreachable: {
+        title: 'Porro couldn’t be reached'|t('porro'),
+        body: 'This site couldn’t check the link with Porro just now. Wait a moment, then go back to the site in Porro and choose Sign in again.'|t('porro'),
+    },
+} %}
+{% set message = messages[reason] ?? messages.unreachable %}
+<!doctype html>
+<html lang="{{ craft.app.language|replace('_', '-') }}">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex">
+    <title>{{ message.title }}</title>
+    <style>
+        :root { color-scheme: light dark; --bg: #f6f6f4; --card: #fff; --text: #1c1c1a; --muted: #5d5d58; --line: #e2e2dd; --link: #1f5fbf; }
+        @media (prefers-color-scheme: dark) { :root { --bg: #141413; --card: #1e1e1c; --text: #ededea; --muted: #a8a8a2; --line: #33332f; --link: #8ab4f8; } }
+        * { box-sizing: border-box; }
+        body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px 16px; background: var(--bg); color: var(--text); font: 16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+        main { width: 100%; max-width: 440px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 28px; }
+        h1 { margin: 0 0 10px; font-size: 20px; line-height: 1.3; }
+        p { margin: 0; color: var(--muted); overflow-wrap: anywhere; }
+        a { color: var(--link); }
+        .actions { margin-top: 20px; font-size: 15px; }
+        form.actions { display: flex; flex-wrap: wrap; gap: 12px 16px; align-items: center; }
+        button { font: inherit; padding: 8px 14px; border: 0; border-radius: 8px; background: var(--link); color: var(--card); cursor: pointer; }
+    </style>
+</head>
+<body>
+    <main>
+        <h1>{{ message.title }}</h1>
+        <p>{{ message.body }}</p>
+        {% if reason == 'switch' %}
+            <form method="post" action="{{ action }}" class="actions">
+                {{ csrfInput() }}
+                <input type="hidden" name="switch" value="{{ switchToken }}">
+                <button type="submit">{{ 'Switch to {new}'|t('porro', {new: email}) }}</button>
+                <a href="{{ stay }}">{{ 'Stay signed in as {current}'|t('porro', {current: current}) }}</a>
+            </form>
+        {% elseif login %}
+            <p class="actions"><a href="{{ login }}">{{ 'Sign in with a password'|t('porro') }}</a></p>
+        {% endif %}
+    </main>
+</body>
+</html>
