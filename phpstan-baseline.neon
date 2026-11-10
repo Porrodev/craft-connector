@@ -1,0 +1,247 @@
+parameters:
+	ignoreErrors:
+		-
+			message: '#^Call to an undefined method yii\\console\\Application\|yii\\web\\Application\<yii\\web\\IdentityInterface\>\:\:getIsInstalled\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: src/BackupReports.php
+
+		-
+			message: '#^Call to an undefined method yii\\console\\Application\|yii\\web\\Application\<yii\\web\\IdentityInterface\>\:\:getPlugins\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: src/BackupReports.php
+
+		-
+			message: '#^Call to an undefined method yii\\console\\Application\|yii\\web\\Application\<yii\\web\\IdentityInterface\>\:\:getConfig\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: src/Collector.php
+
+		-
+			message: '#^Call to an undefined method yii\\console\\Application\|yii\\web\\Application\<yii\\web\\IdentityInterface\>\:\:getEditionName\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: src/Collector.php
+
+		-
+			message: '#^Call to an undefined method yii\\console\\Application\|yii\\web\\Application\<yii\\web\\IdentityInterface\>\:\:getPlugins\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: src/Collector.php
+
+		-
+			message: '#^Call to an undefined method yii\\console\\Application\|yii\\web\\Application\<yii\\web\\IdentityInterface\>\:\:getQueue\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: src/Collector.php
+
+		-
+			message: '#^Call to an undefined method yii\\console\\Application\|yii\\web\\Application\<yii\\web\\IdentityInterface\>\:\:getUpdates\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: src/Collector.php
+
+		-
+			message: '#^Call to an undefined method yii\\console\\Application\|yii\\web\\Application\<yii\\web\\IdentityInterface\>\:\:getConfig\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: src/Plugin.php
+
+		-
+			message: '#^Call to an undefined method yii\\web\\User\<yii\\web\\IdentityInterface\>\:\:checkPermission\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: src/Plugin.php
+
+		-
+			message: '#^Call to an undefined method yii\\web\\User\<yii\\web\\IdentityInterface\>\:\:getIsAdmin\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: src/Plugin.php
+
+		-
+			message: '#^Method porro\\craft\\Plugin\:\:config\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Plugin.php
+
+		-
+			message: '#^Method porro\\craft\\Plugin\:\:getCpNavItem\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Plugin.php
+
+		-
+			message: '#^Call to an undefined method yii\\console\\Application\|yii\\web\\Application\<yii\\web\\IdentityInterface\>\:\:getPlugins\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: src/Reporter.php
+
+		-
+			message: '#^Access to an undefined property yii\\console\\Application\|yii\\web\\Application\<yii\\web\\IdentityInterface\>\:\:\$env\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/activity/Activity.php
+
+		-
+			message: '#^Call to an undefined method yii\\console\\Application\|yii\\web\\Application\<yii\\web\\IdentityInterface\>\:\:getConfig\(\)\.$#'
+			identifier: method.notFound
+			count: 3
+			path: src/activity/Activity.php
+
+		-
+			message: '#^Call to an undefined method yii\\console\\Application\|yii\\web\\Application\<yii\\web\\IdentityInterface\>\:\:getMutex\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: src/activity/Activity.php
+
+		-
+			message: '#^Call to an undefined method yii\\console\\Application\|yii\\web\\Application\<yii\\web\\IdentityInterface\>\:\:getPath\(\)\.$#'
+			identifier: method.notFound
+			count: 3
+			path: src/activity/Activity.php
+
+		-
+			message: '#^Call to an undefined method yii\\console\\Application\|yii\\web\\Application\<yii\\web\\IdentityInterface\>\:\:getQueue\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: src/activity/Activity.php
+
+		-
+			message: '#^Call to an undefined method yii\\db\\Connection\:\:tableExists\(\)\.$#'
+			identifier: method.notFound
+			count: 3
+			path: src/activity/Activity.php
+
+		-
+			message: '#^Method porro\\craft\\activity\\Activity\:\:compiled\(\) should return array\{blocks\: Porro\\Core\\Activity\\IpSet, safe\: Porro\\Core\\Activity\\IpSet, watch\: Porro\\Core\\Activity\\IpSet\} but returns array\{blocks\: Porro\\Core\\Activity\\IpSet, safe\: Porro\\Core\\Activity\\IpSet\}\.$#'
+			identifier: return.type
+			count: 1
+			path: src/activity/Activity.php
+
+		-
+			message: '#^Offset ''crawlers''\|''forge''\|''forge_health'' on array\{forge\: ''PORRO_PROTECT_FORGE'', forge_health\: ''PORRO_PROTECT_FORGE'', crawlers\: ''PORRO_PROTECT…''\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: src/activity/Activity.php
+
+		-
+			message: '#^Call to an undefined method yii\\console\\Application\|yii\\web\\Application\<yii\\web\\IdentityInterface\>\:\:getConfig\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: src/activity/CloudflareMode.php
+
+		-
+			message: '#^Call to an undefined method yii\\console\\Application\|yii\\web\\Application\<yii\\web\\IdentityInterface\>\:\:getSites\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: src/activity/CloudflareMode.php
+
+		-
+			message: '#^Method yii\\db\\Command\:\:upsert\(\) invoked with 5 parameters, 2\-4 required\.$#'
+			identifier: arguments.count
+			count: 1
+			path: src/activity/DbEntryStore.php
+
+		-
+			message: '#^Call to an undefined method yii\\console\\Application\|yii\\web\\Application\<yii\\web\\IdentityInterface\>\:\:getSites\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: src/activity/Presenter.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>country" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: src/activity/Presenter.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>userAgent" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: src/activity/Presenter.php
+
+		-
+			message: '#^Parameter \#1 \$request of method porro\\craft\\activity\\Activity\:\:clientIp\(\) expects craft\\web\\Request, yii\\console\\Request\|yii\\web\\Request given\.$#'
+			identifier: argument.type
+			count: 4
+			path: src/activity/WatchRequests.php
+
+		-
+			message: '#^Parameter \#1 \$request of method porro\\craft\\activity\\Activity\:\:country\(\) expects craft\\web\\Request, yii\\console\\Request\|yii\\web\\Request given\.$#'
+			identifier: argument.type
+			count: 2
+			path: src/activity/WatchRequests.php
+
+		-
+			message: '#^Parameter \#1 \$request of method porro\\craft\\activity\\Activity\:\:viaCloudflare\(\) expects craft\\web\\Request, yii\\console\\Request\|yii\\web\\Request given\.$#'
+			identifier: argument.type
+			count: 2
+			path: src/activity/WatchRequests.php
+
+		-
+			message: '#^Call to an undefined method yii\\console\\Application\|yii\\web\\Application\<yii\\web\\IdentityInterface\>\:\:getConfig\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: src/console/controllers/ConnectController.php
+
+		-
+			message: '#^Unable to resolve the template type TKey in call to function collect$#'
+			identifier: argument.templateType
+			count: 1
+			path: src/console/controllers/StatusController.php
+
+		-
+			message: '#^Unable to resolve the template type TValue in call to function collect$#'
+			identifier: argument.templateType
+			count: 1
+			path: src/console/controllers/StatusController.php
+
+		-
+			message: '#^Access to an undefined property yii\\web\\IdentityInterface\:\:\$username\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/controllers/BlockingController.php
+
+		-
+			message: '#^Call to an undefined method yii\\web\\IdentityInterface\:\:getFriendlyName\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: src/controllers/BlockingController.php
+
+		-
+			message: '#^Method porro\\craft\\controllers\\BlockingController\:\:change\(\) never returns null so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: src/controllers/BlockingController.php
+
+		-
+			message: '#^Call to an undefined method yii\\web\\Session\:\:setNotice\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: src/controllers/SiteHealthController.php
+
+		-
+			message: '#^Call to an undefined method yii\\console\\Application\|yii\\web\\Application\<yii\\web\\IdentityInterface\>\:\:getUpdates\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: src/services/SiteHealth.php
+
+		-
+			message: '#^Call to an undefined method yii\\base\\View\:\:renderTemplate\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: src/widgets/SiteHealthWidget.php
+
+		-
+			message: '#^Call to an undefined method yii\\web\\User\<yii\\web\\IdentityInterface\>\:\:checkPermission\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: src/widgets/SiteHealthWidget.php
+
+		-
+			message: '#^Method porro\\craft\\widgets\\SiteHealthWidget\:\:defineRules\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/widgets/SiteHealthWidget.php
