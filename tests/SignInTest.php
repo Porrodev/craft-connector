@@ -183,6 +183,9 @@ it('starts without a session, and hands the ticket on from this site’s own pag
         // No cookie: a new session would replace whoever is signed in.
         ->and($start['headers'])->not->toHaveKey('set-cookie')
         ->and($start['headers']['cache-control'])->toBe('no-store, private')
+        // So the post this page makes names its origin, for browsers
+        // that don't send Sec-Fetch-Site.
+        ->and($start['headers']['referrer-policy'])->toBe('same-origin')
         ->and($start['headers']['x-frame-options'])->toBe('DENY')
         ->and($start['headers']['content-security-policy'])->toBe("frame-ancestors 'none'")
         // Porro isn't asked until the second step.

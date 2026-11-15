@@ -383,6 +383,13 @@ class SignInController extends Controller
         // asks for a CSRF token, as the switch form does.
         $this->privateHeaders();
 
+        // "no-referrer" would also blank the Origin of the post the
+        // "continue" page makes to this site, which browsers without
+        // Sec-Fetch-Site are told apart by.
+        if ($reason === 'continue') {
+            $this->response->getHeaders()->set('Referrer-Policy', 'same-origin');
+        }
+
         return $this->response;
     }
 
