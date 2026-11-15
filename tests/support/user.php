@@ -6,12 +6,22 @@ use craft\enums\CmsEdition;
 
 /*
  * Makes (or resets) a control panel user who isn't an admin and has only
- * the given permissions: `php user.php <username> [permission…]`.
+ * the given permissions: `php user.php <username> [permission…]`. Name
+ * `--suspended` among them to suspend the account too, or
+ * `--email=<address>` for an email other than <username>@example.com.
  * Switches the install to Craft Pro, which more than one user needs.
  */
 
 [, $username] = $argv;
-$permissions = array_slice($argv, 2);
+$flags = array_filter(array_slice($argv, 2), fn ($arg) => str_starts_with($arg, '--'));
+$permissions = array_values(array_diff(array_slice($argv, 2), $flags));
+$suspended = in_array('--suspended', $flags, true);
+$email = null;
+foreach ($flags as $flag) {
+    if (str_starts_with($flag, '--email=')) {
+        $email = substr($flag, 8);
+    }
+}
 
 $root = (string) getenv('CRAFT_PATH');
 chdir($root);
@@ -27,11 +37,12 @@ $app->getProjectConfig()->saveModifiedConfigData();
 
 $user = User::find()->username($username)->status(null)->one() ?? new User;
 $user->username = $username;
-$user->email = "{$username}@example.com";
+$user->email = $email ?? "{$username}@example.com";
 $user->newPassword = 'ci-only-password';
 $user->admin = false;
 $user->active = true;
 $user->pending = false;
+$user->suspended = $suspended;
 
 if (! $app->getElements()->saveElement($user, false)) {
     fwrite(STDERR, implode("\n", $user->getFirstErrors()));

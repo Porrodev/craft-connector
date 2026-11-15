@@ -150,5 +150,7 @@ it('shows the last result in the dashboard widget, never running the checks itse
     [, $after] = http("{$site}/index.php?p=admin/dashboard", $jar);
 
     expect($before)->toContain('Not checked yet')
-        ->and($after)->not->toContain('Not checked yet')->toContain('Open Porro Site Health');
+        // "See # more" when the site has more issues than the widget lists,
+        // as on a PHP nearing end of life.
+        ->and($after)->not->toContain('Not checked yet')->toMatch('/Open Porro Site Health|See \d+ more/');
 });

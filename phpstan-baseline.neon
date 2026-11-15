@@ -79,6 +79,12 @@ parameters:
 			path: src/Reporter.php
 
 		-
+			message: '#^Call to an undefined method yii\\console\\Application\|yii\\web\\Application\<yii\\web\\IdentityInterface\>\:\:getConfig\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: src/SignIn.php
+
+		-
 			message: '#^Access to an undefined property yii\\console\\Application\|yii\\web\\Application\<yii\\web\\IdentityInterface\>\:\:\$env\.$#'
 			identifier: property.notFound
 			count: 1
@@ -215,6 +221,42 @@ parameters:
 			identifier: return.unusedType
 			count: 1
 			path: src/controllers/BlockingController.php
+
+		-
+			message: '#^Access to an undefined property yii\\web\\User\<yii\\web\\IdentityInterface\>\:\:\$elevatedSessionTimeoutParam\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/controllers/SignInController.php
+
+		-
+			message: '#^Call to an undefined method yii\\base\\View\:\:renderTemplate\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: src/controllers/SignInController.php
+
+		-
+			message: '#^Call to an undefined method yii\\console\\Application\|yii\\web\\Application\<yii\\web\\IdentityInterface\>\:\:getConfig\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: src/controllers/SignInController.php
+
+		-
+			message: '#^Call to an undefined method yii\\console\\Application\|yii\\web\\Application\<yii\\web\\IdentityInterface\>\:\:getMutex\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: src/controllers/SignInController.php
+
+		-
+			message: '#^Method yii\\base\\Security\:\:hashData\(\) invoked with 1 parameter, 2\-3 required\.$#'
+			identifier: arguments.count
+			count: 1
+			path: src/controllers/SignInController.php
+
+		-
+			message: '#^Method yii\\base\\Security\:\:validateData\(\) invoked with 1 parameter, 2\-3 required\.$#'
+			identifier: arguments.count
+			count: 1
+			path: src/controllers/SignInController.php
 
 		-
 			message: '#^Call to an undefined method yii\\web\\Session\:\:setNotice\(\)\.$#'
