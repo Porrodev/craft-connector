@@ -53,13 +53,13 @@ function freshIp(): string
  * @param  array<string, string>|null  $post
  * @return array{status: int, headers: array<string, string>, body: string}
  */
-function fetchPage(string $url, string $ip, ?array $post = null, ?string $jar = null): array
+function fetchPage(string $url, string $ip, ?array $post = null, ?string $jar = null, array $send = []): array
 {
     $headers = [];
     $curl = curl_init($url);
     curl_setopt_array($curl, [
         CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_HTTPHEADER => ["X-Forwarded-For: {$ip}", 'Accept: text/html, application/json'],
+        CURLOPT_HTTPHEADER => ["X-Forwarded-For: {$ip}", 'Accept: text/html, application/json', ...$send],
         CURLOPT_TIMEOUT => 30,
         CURLOPT_USERAGENT => 'porro-tests',
         CURLOPT_HEADERFUNCTION => function ($curl, string $line) use (&$headers) {
@@ -77,9 +77,40 @@ function fetchPage(string $url, string $ip, ?array $post = null, ?string $jar = 
     return ['status' => (int) curl_getinfo($curl, CURLINFO_RESPONSE_CODE), 'headers' => $headers, 'body' => $body];
 }
 
-function signInFromPorro(string $site, string $ip, ?string $jar = null, mixed $ticket = TICKET): array
+/**
+ * The first step, as Porro's page posts the ticket from another site: the
+ * browser holds the site's cookies back, so the jar isn't sent.
+ */
+function startFromPorro(string $site, string $ip, mixed $ticket = TICKET, ?array $send = null): array
 {
-    return fetchPage("{$site}/porro/sign-in", $ip, $ticket === null ? [] : ['ticket' => $ticket], $jar);
+    $send ??= ['Sec-Fetch-Site: cross-site', 'Origin: '.porro()['url']];
+
+    return fetchPage("{$site}/porro/sign-in", $ip, $ticket === null ? [] : ['ticket' => $ticket], send: $send);
+}
+
+/**
+ * The second step, as the site's own page posts the ticket on.
+ *
+ * @param  list<string>  $send
+ */
+function continueSignIn(string $site, string $ip, ?string $jar = null, mixed $ticket = TICKET, array $send = ['Sec-Fetch-Site: same-origin']): array
+{
+    return fetchPage("{$site}/porro/sign-in/continue", $ip, $ticket === null ? [] : ['ticket' => $ticket], $jar, $send);
+}
+
+/**
+ * Both steps, as a browser takes them. Returns the first step's answer
+ * when it doesn't hand the ticket on.
+ */
+function signInFromPorro(string $site, string $ip, ?string $jar = null, mixed $ticket = TICKET, ?string $porro = null): array
+{
+    $start = startFromPorro($site, $ip, $ticket, $porro === null ? null : ['Sec-Fetch-Site: cross-site', "Origin: {$porro}"]);
+
+    if ($start['status'] !== 200 || ! preg_match('/name="ticket" value="([^"]+)"/', $start['body'], $m)) {
+        return $start;
+    }
+
+    return continueSignIn($site, $ip, $jar, html_entity_decode($m[1]));
 }
 
 /**
@@ -139,6 +170,99 @@ it('signs the member in to the control panel and sends them to the dashboard', f
     $dashboard = fetchPage("{$site}/index.php?p=admin/dashboard", $ip, jar: $jar);
 
     expect($dashboard['status'])->toBe(200)->and($dashboard['body'])->toContain('Dashboard');
+});
+
+it('starts without a session, and hands the ticket on from this site’s own page', function () {
+    porroAnswers(200, ['ok' => true, 'email' => 'editor@example.com', 'name' => 'Ed Itor']);
+    $site = proxiedSite();
+
+    $start = startFromPorro($site, freshIp());
+
+    expect($start['status'])->toBe(200, $start['body'])
+        ->and($start['body'])->toContain('/porro/sign-in/continue"')->toContain('name="ticket" value="'.TICKET.'"')
+        // No cookie: a new session would replace whoever is signed in.
+        ->and($start['headers'])->not->toHaveKey('set-cookie')
+        ->and($start['headers']['cache-control'])->toBe('no-store, private')
+        ->and($start['headers']['x-frame-options'])->toBe('DENY')
+        ->and($start['headers']['content-security-policy'])->toBe("frame-ancestors 'none'")
+        // Porro isn't asked until the second step.
+        ->and(redeems())->toBe([]);
+});
+
+it('only starts for a ticket posted from Porro’s own page', function (?string $origin) {
+    // Any other site could post a ticket of its own, to have this site's
+    // page sign a visitor in to its account.
+    $porro = porro()['url'];
+    $origin = $origin === null ? [] : ['Origin: '.str_replace(['{porro}', '{host}'], [$porro, (string) parse_url($porro, PHP_URL_HOST)], $origin)];
+
+    $start = startFromPorro(proxiedSite(), freshIp(), send: $origin);
+
+    expect($start['status'])->toBe(410)
+        ->and($start['body'])->not->toContain(TICKET);
+})->with([
+    'another site' => ['https://evil.example'],
+    'a page that hides its origin' => ['null'],
+    'no origin at all' => [null],
+    'Porro’s host over https' => ['https://{host}'],
+    'Porro’s host on another port' => ['http://{host}:9'],
+    'a host that starts like Porro’s' => ['{porro}.evil.example'],
+]);
+
+it('only signs in from this site’s own page', function (array $send, bool $allowed) {
+    porroAnswers(200, ['ok' => true, 'email' => 'editor@example.com', 'name' => 'Ed Itor']);
+    $site = proxiedSite();
+    $ip = freshIp();
+    $jar = jar();
+    $port = (string) parse_url($site, PHP_URL_PORT);
+    $send = str_replace(['{site}', '{port}'], [$site, $port], $send);
+
+    $response = continueSignIn($site, $ip, $jar, send: $send);
+
+    if ($allowed) {
+        expect($response['status'])->toBe(302, $response['body'])->and(signedInAs($site, $ip, $jar))->toBe('editor@example.com');
+
+        return;
+    }
+
+    // Turned away before Porro is asked, so the ticket isn't spent.
+    expect($response['status'])->toBe(410)
+        ->and(redeems())->toBe([])
+        ->and(signedInAs($site, $ip, $jar))->toBeNull();
+})->with([
+    'another site' => [['Sec-Fetch-Site: cross-site'], false],
+    'another site, same registrable domain' => [['Sec-Fetch-Site: same-site'], false],
+    'no word on where it came from' => [[], false],
+    'an older browser, another origin' => [['Origin: https://evil.example'], false],
+    'an older browser, this host on another port' => [['Origin: http://127.0.0.1:9'], false],
+    'an older browser, this host without its port' => [['Origin: http://127.0.0.1'], false],
+    'an older browser, this host over https' => [['Origin: https://127.0.0.1:{port}'], false],
+    'an older browser, this origin' => [['Origin: {site}'], true],
+]);
+
+it('won’t take a ticket from the address', function () {
+    $site = proxiedSite();
+    $ip = freshIp();
+
+    $start = fetchPage("{$site}/porro/sign-in?ticket=".TICKET, $ip, ['ticket' => TICKET], send: ['Origin: '.porro()['url']]);
+    $continue = fetchPage("{$site}/porro/sign-in/continue?ticket=".TICKET, $ip, ['ticket' => TICKET], send: ['Sec-Fetch-Site: same-origin']);
+
+    expect($start['status'])->toBe(410)
+        ->and($start['body'])->not->toContain(TICKET)
+        ->and($continue['status'])->toBe(410)
+        ->and(redeems())->toBe([]);
+});
+
+it('is off on a copy of the site that isn’t live, unless the copy turns it on', function () {
+    $site = proxiedSite();
+    $staging = fn ($env) => preg_replace('/^CRAFT_ENVIRONMENT=.*$/m', 'CRAFT_ENVIRONMENT=staging', $env);
+
+    $off = withEnvFile($staging, fn () => startFromPorro($site, freshIp()));
+    $on = withEnvFile(fn ($env) => $staging($env)."\nPORRO_SIGN_IN=true\n", fn () => startFromPorro($site, freshIp()));
+
+    expect($off['status'])->toBe(403)
+        ->and($off['body'])->toContain('works on the live site only')
+        ->and($on['status'])->toBe(200)
+        ->and(redeems())->toBe([]);
 });
 
 it('matches the email whatever its case, and lets admins in', function () {
@@ -272,6 +396,21 @@ it('signs no one in when more than one account uses the email', function () {
         ->and(signedInAs($site, $ip, $jar))->toBeNull();
 });
 
+it('signs no one in when the email’s other account couldn’t sign in anyway', function () {
+    cpUser('pair1', ['accessCp', '--email=pair@example.com']);
+    cpUser('pair2', ['accessCp', '--email=Pair@Example.com', '--suspended']);
+    porroAnswers(200, ['ok' => true, 'email' => 'pair@example.com', 'name' => 'Pair']);
+    $site = proxiedSite();
+    $ip = freshIp();
+    $jar = jar();
+
+    $response = signInFromPorro($site, $ip, $jar);
+
+    expect($response['status'])->toBe(403)
+        ->and($response['body'])->toContain('More than one account on this site uses this email')
+        ->and(signedInAs($site, $ip, $jar))->toBeNull();
+});
+
 it('says sign-in is off when Porro has it turned off for the site', function () {
     porroAnswers(403, ['ok' => false, 'error' => 'Sign-in is turned off for this site.']);
 
@@ -304,7 +443,7 @@ it('says Porro couldn’t be reached when it can’t be', function () {
     // environment, so change it there for this test.
     $response = withEnvFile(
         fn ($env) => preg_replace('/^PORRO_URL=.*$/m', 'PORRO_URL=http://127.0.0.1:9', $env),
-        fn () => signInFromPorro($site, $ip, $jar),
+        fn () => signInFromPorro($site, $ip, $jar, porro: 'http://127.0.0.1:9'),
     );
 
     expect($response['status'])->toBe(502)

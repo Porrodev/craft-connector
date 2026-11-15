@@ -28,18 +28,49 @@ class SignIn
     public const UNREACHABLE = 'unreachable';
 
     /**
-     * Whether the site owner allows it. On unless PORRO_SIGN_IN says no.
+     * Whether the site owner allows it. PORRO_SIGN_IN decides when it's
+     * set. Unset, it's on for the live site only, as reporting is: a
+     * staging or local copy that carries the live site's key would
+     * otherwise take the live site's tickets.
      */
     public static function enabled(): bool
+    {
+        return self::setting() ?? self::live();
+    }
+
+    /**
+     * Which "it's off here" page to show: turned off by hand, or a copy
+     * of the site that isn't live.
+     */
+    public static function offReason(): string
+    {
+        return self::setting() === false ? 'turned_off_here' : 'not_live';
+    }
+
+    /**
+     * PORRO_SIGN_IN as yes or no, or null when it's unset.
+     */
+    private static function setting(): ?bool
     {
         // App::env() already turns "false", "0" and similar into booleans.
         $value = App::env('PORRO_SIGN_IN');
 
         if ($value === null || $value === '') {
-            return true;
+            return null;
         }
 
         return is_bool($value) ? $value : ! in_array(strtolower(trim((string) $value)), ['0', 'false', 'off', 'no'], true);
+    }
+
+    /**
+     * CRAFT_ENVIRONMENT is production (or unset) and devMode is off.
+     */
+    private static function live(): bool
+    {
+        $environment = Plugin::environment();
+
+        return ($environment === null || in_array(strtolower($environment), ['production', 'prod', 'live'], true))
+            && ! Craft::$app->getConfig()->getGeneral()->devMode;
     }
 
     /**

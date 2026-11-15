@@ -41,6 +41,14 @@
         title: 'Sign-in from Porro is turned off'|t('porro'),
         body: 'This site has turned off signing in from Porro (PORRO_SIGN_IN=false). Sign in with your password instead.'|t('porro'),
     },
+    not_live: {
+        title: 'Sign-in from Porro is off on this copy of the site'|t('porro'),
+        body: 'Signing in from Porro works on the live site only, unless a copy turns it on (PORRO_SIGN_IN=true). Sign in with your password instead.'|t('porro'),
+    },
+    continue: {
+        title: 'Signing you in…'|t('porro'),
+        body: 'If nothing happens, choose Continue.'|t('porro'),
+    },
     not_connected: {
         title: 'This site isn’t connected to Porro'|t('porro'),
         body: 'The site has no Porro site key, so it can’t check the link with Porro. Sign in with your password instead.'|t('porro'),
@@ -91,6 +99,14 @@
                 <button type="submit">{{ 'Switch to {new}'|t('porro', {new: email}) }}</button>
                 <a href="{{ stay }}">{{ 'Stay signed in as {current}'|t('porro', {current: current}) }}</a>
             </form>
+        {% elseif reason == 'continue' %}
+            {# Posted on from this site's own page, so the browser sends the
+               session cookie it held back from Porro's. #}
+            <form method="post" action="{{ action }}" class="actions" id="porro-continue">
+                <input type="hidden" name="ticket" value="{{ ticket }}">
+                <button type="submit">{{ 'Continue'|t('porro') }}</button>
+            </form>
+            <script>document.getElementById('porro-continue').submit();</script>
         {% elseif login %}
             <p class="actions"><a href="{{ login }}">{{ 'Sign in with a password'|t('porro') }}</a></p>
         {% endif %}

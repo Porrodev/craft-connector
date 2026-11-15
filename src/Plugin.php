@@ -86,6 +86,9 @@ class Plugin extends BasePlugin
         // is left to the site's own routes.
         Event::on(UrlManager::class, UrlManager::EVENT_REGISTER_SITE_URL_RULES, function (RegisterUrlRulesEvent $event) {
             $event->rules['POST porro/sign-in'] = 'porro/sign-in/index';
+            // Where the site's own page posts the ticket on, with the
+            // session cookie the browser held back from Porro's page.
+            $event->rules['POST porro/sign-in/continue'] = 'porro/sign-in/continue';
         });
 
         Event::on(CraftVariable::class, CraftVariable::EVENT_INIT, function (Event $event) {
