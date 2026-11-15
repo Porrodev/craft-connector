@@ -94,6 +94,10 @@
         .site { font-size: 12px; }
         .progress { height: 3px; border-radius: 2px; background: var(--track); overflow: hidden; }
         .progress span { display: block; width: 60%; height: 100%; border-radius: 2px; background: var(--primary); }
+        /* A sweep, not a percentage: the page can't know how long Porro
+           takes to answer. Still for anyone who asks for less motion. */
+        @media (prefers-reduced-motion: no-preference) { .progress span { width: 40%; animation: porro-sweep 1.4s ease-in-out infinite; } }
+        @keyframes porro-sweep { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
         .actions { display: flex; flex-wrap: wrap; gap: 12px 16px; align-items: center; }
         button { font: inherit; font-size: 14px; font-weight: 500; padding: 9px 14px; border-radius: 6px; border: 1px solid var(--primary); background: var(--primary); color: var(--on-primary); cursor: pointer; }
         button.quiet { border-color: var(--line); background: none; color: var(--text); }
