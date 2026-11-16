@@ -84,6 +84,8 @@ The Porro Site Health page then shows the site's open findings in Porro alongsid
 
 Or connect from the control panel, with no key to copy. On the live site, **Porro → Site health** has a **Connect to Porro** button for admins and users with **Connect the site to Porro**. It opens Porro, where you sign in and approve, and brings you back connected. The key is made on the site and kept in its database, encrypted with Craft's security key (run `php craft migrate/all` first, for the `porro_settings` table). `PORRO_KEY` in the environment wins when it's set. A copy whose `CRAFT_ENVIRONMENT` isn't production, or with devMode on, has no button and says why. Connecting this way doesn't touch the crontab: run `php craft porro/cron` on the server afterwards.
 
+To undo it, press **Disconnect** on the same card, or run `php craft porro/disconnect` (`--force` skips the question, and is needed where there's no terminal to ask in). Porro is told, and the key is deleted from the site's database whatever Porro answers; the checks in the control panel carry on. The workspace keeps the site and its history in Porro until someone removes it there. A key in `PORRO_KEY` can't be disconnected this way: remove it from the environment and deploy. A staging or local copy never disconnects, because a copy of the live database holds the live site's key: there is no button there, and the command refuses unless you add `--live`. If the site is removed in Porro, or given a new key there, the next report is turned away, the old key is deleted and Site health says so until you connect again.
+
 Use `--cron` to add it without asking (handy in provisioning scripts) or `--no-cron` to leave the crontab alone. Skipped it, or connected from another machine? Run `php craft porro/cron` on the server; it needs no key, and once the site is connected it sends a report straight away. Add `php craft porro/report --deploy` to your deploy script so Porro hears about deploys straight away.
 
 ## Sign in from Porro
@@ -233,6 +235,7 @@ Content, entries, assets, users, settings values or secrets. Run `php craft porr
 | `porro/connect <key>` | Saves the key, sends the first report and sets up cron (`--cron`, `--no-cron`, `--url`) |
 | `porro/cron` | Adds the cron line on its own, no key needed. Sends a report straight away once connected |
 | `porro/report` | Sends a report now (`--packages` forces the package list, `--deploy` for deploy scripts) |
+| `porro/disconnect` | Tells Porro, then deletes a key made by **Connect to Porro** (`--force` to skip the question, `--live` on a site whose environment doesn't say production). Never touches `PORRO_KEY` |
 | `porro/status` | Shows what the next report contains, and where the site key came from (`--json` for the raw report) |
 | `porro/blocklist` | Tidies the blocklist and, in nginx mode, writes the deny file. Cron runs it every minute in nginx mode |
 | `porro/cloudflare [connect\|sync\|status\|disconnect]` | Blocks at Cloudflare's edge |

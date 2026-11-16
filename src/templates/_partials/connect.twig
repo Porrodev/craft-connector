@@ -1,7 +1,9 @@
-{# Connect to Porro: the live site not connected, a copy that isn't production, or connected from here. #}
+{# Connect to Porro: the live site not connected, a copy that isn't production, connected from here, or a key Porro turned away. #}
+{% set away = connect.turnedAway %}
+{% set mayDisconnect = connect.state == 'connected' and connect.canConnect %}
 <div class="porro-connect">
     <div class="porro-connect-text">
-        <p class="porro-connect-state light smalltext">{{ connect.state == 'connected' ? 'Connected to Porro'|t('porro') : 'Not connected to Porro'|t('porro') }}</p>
+        <p class="porro-connect-state light smalltext">{{ connect.state == 'connected' ? 'Connected to Porro'|t('porro') : (away ? 'No longer connected to Porro'|t('porro') : 'Not connected to Porro'|t('porro')) }}</p>
         {% if connect.state == 'connected' %}
             <h2>{{ connect.workspace ? 'Connected to {workspace}'|t('porro', {workspace: connect.workspace}) : 'Connected to Porro'|t('porro') }}</h2>
             <p>{% if connect.approvedAgo %}{{ 'Approved {ago}.'|t('porro', {ago: connect.approvedAgo}) }} {% endif %}{{ 'The first report has been sent, and Porro now checks this site every hour.'|t('porro') }}</p>
@@ -15,6 +17,12 @@
                 <p>{{ 'It has devMode on, so it does not connect and sends no reports. Deploy, then connect from the live site’s control panel. The checks below still run here.'|t('porro') }}</p>
                 <p class="light smalltext">{{ 'Is this the live site? Its devMode should be off. You can also set a site key.'|t('porro') }}</p>
             {% endif %}
+        {% elseif away %}
+            {# The site was removed in Porro, or given a new key there. Stays until it connects again. #}
+            {% set from = away.workspace ?: 'Porro'|t('porro') %}
+            <h2>{{ 'Porro turned this site’s key away'|t('porro') }}</h2>
+            <p>{{ 'The site was removed from {workspace}, or given a new key there.'|t('porro', {workspace: from}) }} {% if away.date and away.time %}{{ 'Reports stopped on {date} at {time}.'|t('porro', {date: away.date, time: away.time}) }} {% endif %}{{ 'The old key has been deleted from this site.'|t('porro') }}</p>
+            <p class="light smalltext">{{ 'Connect again to carry on. Opens {host} to sign in and approve.'|t('porro', {host: connect.porroHost}) }}</p>
         {% else %}
             <h2>{{ 'Have this site checked every hour'|t('porro') }}</h2>
             <p>{{ 'The checks below ran on this site just now. Connect it to Porro for hourly advisory checks, uptime from outside, and an alert the moment something changes.'|t('porro') }}</p>
@@ -22,8 +30,14 @@
         {% endif %}
     </div>
     {% if connect.state == 'connected' %}
-        <a href="{{ connect.openUrl }}" target="_blank" rel="noopener" class="btn">{{ 'Open in Porro'|t('porro') }}</a>
-    {% elseif connect.state == 'ready' %}
+        <div class="porro-connect-actions">
+            {% if mayDisconnect %}
+                {# Quiet, beside the button people come here for. Asks first, in the dialog below. #}
+                <button type="button" class="btn porro-quiet" data-porro-disconnect aria-haspopup="dialog">{{ 'Disconnect'|t('porro') }}</button>
+            {% endif %}
+            <a href="{{ connect.openUrl }}" target="_blank" rel="noopener" class="btn">{{ 'Open in Porro'|t('porro') }}</a>
+        </div>
+    {% elseif connect.state == 'ready' and connect.canConnect %}
         {# The branded button: Porro's own colours in light and dark mode alike. The mark is never recoloured. #}
         <form method="post" accept-charset="UTF-8">
             {{ csrfInput() }}
@@ -35,3 +49,6 @@
         </form>
     {% endif %}
 </div>
+{% if mayDisconnect %}
+    {% include 'porro/_partials/disconnect' %}
+{% endif %}

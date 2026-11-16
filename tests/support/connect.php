@@ -5,6 +5,7 @@ use craft\db\Query;
 use craft\services\Security;
 use Porro\Core\SiteKey;
 use porro\craft\activity\Activity;
+use porro\craft\connect\Disconnect;
 use porro\craft\migrations\m261116_000000_porro_settings;
 use porro\craft\Plugin;
 use porro\craft\SiteKeys;
@@ -19,6 +20,9 @@ use porro\craft\SiteKeys;
  * `store <workspace> [host]`: keeps a new key, as a finished connection
  *     would, and prints its public half.
  * `forget`: removes the stored key.
+ * `disconnect`: runs the disconnect service and prints what it returned.
+ * `turned-away`: the note kept when Porro turned the stored key away.
+ * `forget-turned-away`: removes that note.
  * `waiting`: every row in Porro's own cache table, as the database holds
  *     it: {id: data}.
  * `expire <id>…`: runs those rows out of time.
@@ -57,6 +61,15 @@ switch ($action) {
         break;
     case 'forget':
         $keys->forget();
+        break;
+    case 'disconnect':
+        echo json_encode((new Disconnect)->disconnect());
+        break;
+    case 'turned-away':
+        echo json_encode($keys->turnedAway());
+        break;
+    case 'forget-turned-away':
+        $db->createCommand()->delete(SiteKeys::TABLE, ['key' => 'turned_away'])->execute();
         break;
     case 'waiting':
         $rows = [];

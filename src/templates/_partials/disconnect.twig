@@ -1,0 +1,40 @@
+{# What Disconnect asks before it acts. The form in it is the one that disconnects. #}
+{% set site = connect.host ?: 'this site'|t('porro') %}
+{% set from = connect.workspace ?: 'Porro'|t('porro') %}
+<dialog id="porro-disconnect" class="porro-confirm porro-disconnect" aria-labelledby="porro-disconnect-title">
+    <form method="post" accept-charset="UTF-8">
+        {{ csrfInput() }}
+        {{ actionInput('porro/connect/disconnect') }}
+        <div class="body">
+            <h2 id="porro-disconnect-title">{{ 'Disconnect {host} from Porro?'|t('porro', {host: site}) }}</h2>
+            <p>{{ 'This site stops sending reports to {workspace}, and its key is deleted from this site.'|t('porro', {workspace: from}) }}</p>
+            <dl class="porro-disconnect-rows">
+                <dt>{{ 'Stops'|t('porro') }}</dt>
+                <dd>{{ 'Hourly reports of what is installed here, and signing in to this site from Porro.'|t('porro') }}</dd>
+                <dt>{{ 'Carries on'|t('porro') }}</dt>
+                <dd>{{ 'The checks on this page. They run on this site and need no account.'|t('porro') }}</dd>
+                <dt>{{ 'In Porro'|t('porro') }}</dt>
+                <dd>{{ '{workspace} keeps the site and its history. Uptime, SSL and domain checks go on from outside until someone removes the site there.'|t('porro', {workspace: from}) }}</dd>
+            </dl>
+            <p class="light smalltext">{{ 'You can connect again at any time.'|t('porro') }}</p>
+        </div>
+        <div class="footer">
+            <button type="button" class="btn" data-porro-cancel>{{ 'Cancel'|t('porro') }}</button>
+            <button type="submit" class="btn porro-danger">{{ 'Disconnect'|t('porro') }}</button>
+        </div>
+    </form>
+</dialog>
+{% js %}
+    (function () {
+        var dialog = document.getElementById('porro-disconnect');
+        var open = document.querySelector('[data-porro-disconnect]');
+        if (!dialog || !open || typeof dialog.showModal !== 'function') return;
+
+        var cancel = dialog.querySelector('[data-porro-cancel]');
+        open.addEventListener('click', function () {
+            dialog.showModal();
+            cancel.focus();
+        });
+        cancel.addEventListener('click', function () { dialog.close(); });
+    })();
+{% endjs %}

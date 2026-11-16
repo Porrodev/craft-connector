@@ -16,6 +16,11 @@
  * test set one. Both must be signed by the public key the start sent,
  * which is kept in "connect-public-key"; from then on that key signs the
  * site's reports, findings and sign-ins as well.
+ *
+ * "Disconnect": saved, with which site signed it, to "disconnects" (one
+ * JSON line each) and answered with what's in "disconnect-answer"
+ * ({"status": …, "body": …}), or a plain yes. A report gets the answer in
+ * "report-answer" instead of being accepted, when the test set one.
  */
 
 const CONNECT_ID = '0196f3a2-7c41-7e0b-9d55-2f6a8c1e4b70';
@@ -28,7 +33,7 @@ header('Content-Type: application/json');
 
 $route = $_SERVER['REQUEST_METHOD'].' '.$_SERVER['REQUEST_URI'];
 
-if (! in_array($route, ['POST /api/v1/reports', 'GET /api/v1/findings', 'POST /api/v1/sign-in/redeem', 'POST /api/v1/connect', 'POST /api/v1/connect/'.CONNECT_ID.'/complete'], true)) {
+if (! in_array($route, ['POST /api/v1/reports', 'GET /api/v1/findings', 'POST /api/v1/sign-in/redeem', 'POST /api/v1/connect', 'POST /api/v1/connect/'.CONNECT_ID.'/complete', 'POST /api/v1/disconnect'], true)) {
     http_response_code(404);
     exit('{"ok":false,"error":"Not found."}');
 }
@@ -77,6 +82,14 @@ if ($connecting) {
     exit(json_encode($answer));
 }
 
+// Disconnect: what the site sent, and what the test wants said back.
+if ($route === 'POST /api/v1/disconnect') {
+    file_put_contents("{$dir}/disconnects", json_encode(['body' => $body, 'site' => $_SERVER['HTTP_X_PORRO_SITE'] ?? null])."\n", FILE_APPEND);
+    $answer = json_decode((string) @file_get_contents("{$dir}/disconnect-answer"), true) ?: ['status' => 200, 'body' => ['ok' => true]];
+    http_response_code($answer['status']);
+    exit(json_encode($answer['body']));
+}
+
 // The Site health panel reading the site's findings back.
 if ($route === 'GET /api/v1/findings') {
     exit(json_encode(['ok' => true, 'site' => ['url' => 'https://porro.test/acme/sites/craft'], 'findings' => [
@@ -95,6 +108,12 @@ if ($route === 'POST /api/v1/sign-in/redeem') {
         'Content-Type' => $_SERVER['CONTENT_TYPE'] ?? '',
     ]])."\n", FILE_APPEND);
     $answer = json_decode((string) @file_get_contents("{$dir}/sign-in-answer"), true) ?: ['status' => 410, 'body' => ['ok' => false, 'error' => 'That sign-in link has expired.']];
+    http_response_code($answer['status']);
+    exit(json_encode($answer['body']));
+}
+
+// A report Porro turns down, for a reason the test chose.
+if ($answer = json_decode((string) @file_get_contents("{$dir}/report-answer"), true)) {
     http_response_code($answer['status']);
     exit(json_encode($answer['body']));
 }

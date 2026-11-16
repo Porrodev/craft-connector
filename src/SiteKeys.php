@@ -34,6 +34,8 @@ class SiteKeys extends Component
 
     private const PROBE = 'write_check';
 
+    private const TURNED_AWAY = 'turned_away';
+
     /**
      * Who the stored key is connected to. Never the key itself: that is
      * read and decrypted each time it's needed, and kept nowhere.
@@ -134,6 +136,60 @@ class SiteKeys extends Component
         Craft::$app->getDb()->createCommand()->upsert(self::TABLE, ['key' => self::ROW, 'value' => $value])->execute();
 
         $this->stored = null;
+
+        // Connected again: what happened to the last key is history.
+        try {
+            Craft::$app->getDb()->createCommand()->delete(self::TABLE, ['key' => self::TURNED_AWAY])->execute();
+        } catch (Throwable) {
+            // The key is kept; the note can wait.
+        }
+    }
+
+    /**
+     * Porro turned the stored key away: the site was removed there, or
+     * given a new key. The key is finished, so it's deleted, and who it
+     * was for and when is kept so the control panel can say what
+     * happened. Does nothing for a key from the environment.
+     */
+    public function turnAway(): void
+    {
+        $stored = $this->stored();
+
+        if ($stored === null || $this->fromEnv() !== null) {
+            return;
+        }
+
+        try {
+            Craft::$app->getDb()->createCommand()->upsert(self::TABLE, [
+                'key' => self::TURNED_AWAY,
+                'value' => (string) json_encode(['workspace' => $stored['workspace'], 'at' => gmdate('c')]),
+            ])->execute();
+        } catch (Throwable) {
+            // The note is a nicety; the key still goes.
+        }
+
+        $this->forget();
+    }
+
+    /**
+     * Set when Porro turned the stored key away, until the site connects
+     * again. Nothing secret in it, so it's kept as plain JSON.
+     *
+     * @return array{workspace: string|null, at: string|null}|null
+     */
+    public function turnedAway(): ?array
+    {
+        try {
+            $value = (new Query)->select(['value'])->from(self::TABLE)->where(['key' => self::TURNED_AWAY])->scalar();
+            $data = is_string($value) ? json_decode($value, true) : null;
+        } catch (Throwable) {
+            return null;
+        }
+
+        return is_array($data) ? [
+            'workspace' => is_string($data['workspace'] ?? null) ? $data['workspace'] : null,
+            'at' => is_string($data['at'] ?? null) ? $data['at'] : null,
+        ] : null;
     }
 
     /**
@@ -174,6 +230,10 @@ class SiteKeys extends Component
         return Craft::$app->getSecurity();
     }
 
+    /**
+     * Delete the key made in the control panel. PORRO_KEY in the
+     * environment is not this code's to change.
+     */
     public function forget(): void
     {
         try {

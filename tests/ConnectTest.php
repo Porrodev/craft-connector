@@ -37,37 +37,6 @@ afterEach(function () {
 });
 
 /**
- * A page as a browser asks for it, without following where it's sent.
- *
- * @param  array<string, string>|null  $post
- * @param  list<string>  $headers
- * @return array{status: int, location: string, body: string}
- */
-function browse(string $url, ?string $jar = null, ?array $post = null, array $headers = []): array
-{
-    $curl = curl_init($url);
-    curl_setopt_array($curl, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_HTTPHEADER => ['Accept: text/html', ...$headers],
-        CURLOPT_TIMEOUT => 60,
-        CURLOPT_USERAGENT => 'porro-tests',
-    ] + ($jar ? [CURLOPT_COOKIEJAR => $jar, CURLOPT_COOKIEFILE => $jar] : [])
-      + ($post !== null ? [CURLOPT_POST => true, CURLOPT_POSTFIELDS => http_build_query($post)] : []));
-    $body = (string) curl_exec($curl);
-
-    return ['status' => (int) curl_getinfo($curl, CURLINFO_RESPONSE_CODE), 'location' => (string) curl_getinfo($curl, CURLINFO_REDIRECT_URL), 'body' => $body];
-}
-
-function siteHealth(string $site, string $jar): string
-{
-    $page = browse("{$site}/index.php?p=admin/porro", $jar);
-
-    expect($page['status'])->toBe(200, $page['body']);
-
-    return $page['body'];
-}
-
-/**
  * Presses "Connect to Porro". The token comes from the dashboard, which
  * everyone signed in can open, button or no button.
  *

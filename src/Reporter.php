@@ -78,7 +78,24 @@ class Reporter extends Component
             }
         }
 
+        // The site was removed in Porro, or given a new key there: the one
+        // kept here is finished. Never a key passed in or from the environment.
+        if ($key === null && $result->keyTurnedAway()) {
+            Plugin::keys()->turnAway();
+            Plugin::getInstance()?->getSiteHealth()->forgetPanel();
+        }
+
         return $result;
+    }
+
+    /**
+     * Forgets which lock files Porro has, so the next site this one is
+     * connected as is sent its packages.
+     */
+    public function forgetSent(): void
+    {
+        Craft::$app->getCache()->delete(self::SENT_LOCK_KEY);
+        Craft::$app->getCache()->delete(self::SENT_NPM_LOCK_KEY);
     }
 
     /**
