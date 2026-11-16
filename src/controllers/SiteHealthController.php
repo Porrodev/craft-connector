@@ -34,7 +34,20 @@ class SiteHealthController extends Controller
             'connect' => (new PanelConnect)->panel($view['connected'], $view['porroUrl']),
             // Why "Connect to Porro" didn't finish, when it just didn't.
             'connectError' => Craft::$app->getSession()->getFlash(ConnectController::ERROR_FLASH, null, true),
+            // The site was just disconnected: said once, on this view only.
+            'disconnected' => self::disconnected(Craft::$app->getSession()->getFlash(ConnectController::DISCONNECTED_FLASH, null, true)),
         ]);
+    }
+
+    /**
+     * @return array{workspace: string|null, told: bool}|null
+     */
+    private static function disconnected(mixed $flash): ?array
+    {
+        return is_array($flash) ? [
+            'workspace' => is_string($flash['workspace'] ?? null) && $flash['workspace'] !== '' ? $flash['workspace'] : null,
+            'told' => (bool) ($flash['told'] ?? false),
+        ] : null;
     }
 
     /**

@@ -88,19 +88,25 @@ class PanelConnect
      *
      * The live site with no key shows the button, to whoever may connect.
      * A copy that isn't production shows why it doesn't connect instead.
-     * A site connected from here says who to. A site with PORRO_KEY in its
-     * environment shows none of this: it's connected the way it always was.
+     * A site connected from here says who to, with Disconnect for whoever
+     * may connect. A site with PORRO_KEY in its environment shows only how
+     * to disconnect: it's connected the way it always was. A site whose
+     * key Porro turned away says so until it connects again.
      *
      * @param  bool  $connected  whether the checks found a working key
      * @param  string|null  $siteUrl  the site's page in Porro, when Porro said
-     * @return array{panel: bool, upsell: bool, state: string, environment: string|null, porroHost: string, workspace: string|null, approvedAgo: string|null, openUrl: string}
+     * @return array{panel: bool, upsell: bool, state: string, environment: string|null, porroHost: string, workspace: string|null, host: string|null, approvedAgo: string|null, openUrl: string, canConnect: bool, turnedAway: array{workspace: string|null, date: string|null, time: string|null}|null}
      */
     public function panel(bool $connected, ?string $siteUrl): array
     {
         $state = $this->state();
         $stored = $state === self::CONNECTED ? $this->keys->stored() : null;
+        $canConnect = Plugin::canConnect();
+        // Only where the plain "not connected" card would be, or nothing.
+        $turnedAway = in_array($state, [self::READY, self::OFF], true) ? $this->turnedAway() : null;
         $panel = match ($state) {
-            self::READY => Plugin::canConnect(),
+            self::READY => $canConnect || $turnedAway !== null,
+            self::OFF => $turnedAway !== null,
             self::DEVELOPMENT, self::CONNECTED => true,
             default => false,
         };
@@ -114,8 +120,37 @@ class PanelConnect
             'environment' => self::copyEnvironment(),
             'porroHost' => self::porroHost(),
             'workspace' => $stored['workspace'] ?? null,
+            // The site as Porro knows it, for the Disconnect dialog.
+            'host' => $stored['host'] ?? null,
             'approvedAgo' => self::since($stored['connected_at'] ?? null),
             'openUrl' => $siteUrl ?? Plugin::url(),
+            // Decides the Connect to Porro and Disconnect buttons.
+            'canConnect' => $canConnect,
+            'turnedAway' => $turnedAway,
+        ];
+    }
+
+    /**
+     * Who Porro turned the stored key away for and when, in the site's
+     * own time zone and language. Null when it didn't.
+     *
+     * @return array{workspace: string|null, date: string|null, time: string|null}|null
+     */
+    private function turnedAway(): ?array
+    {
+        $note = $this->keys->turnedAway();
+
+        if ($note === null) {
+            return null;
+        }
+
+        $at = $note['at'] !== null ? strtotime($note['at']) : false;
+        $formatter = Craft::$app->getFormatter();
+
+        return [
+            'workspace' => $note['workspace'],
+            'date' => $at !== false ? $formatter->asDate($at, 'php:j F') : null,
+            'time' => $at !== false ? $formatter->asTime($at, 'short') : null,
         ];
     }
 

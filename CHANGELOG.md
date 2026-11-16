@@ -1,5 +1,14 @@
 # Release Notes for Porro Site Health
 
+## Unreleased
+
+- **Disconnect from Porro.** A site connected from the control panel now has a **Disconnect** button beside **Open in Porro** on Site health, for admins and users with **Connect the site to Porro**. It asks first, saying what stops and what carries on, then tells Porro and deletes the key from the site's database. The key goes even if Porro can't be reached; Site health then says Porro wasn't told, and the workspace sees the site as not reporting. The checks in the control panel carry on, and the workspace keeps the site and its history until someone removes it in Porro. You can connect again at any time.
+- `php craft porro/disconnect` does the same from the terminal, asking first (`--force` to skip the question, which a script with no terminal needs).
+- A staging or local copy never disconnects: a copy of the live database holds the live site's key, so that would switch the live site off in Porro. There is no button there, and the command refuses unless you add `--live`.
+- A site connected with `PORRO_KEY` in its environment has no button: Site health says to remove `PORRO_KEY` from the environment and deploy, and the command says the same.
+- When the site has been removed in Porro, or given a new key there, the next report is turned away. The site now deletes the old key and Site health says what happened and when, with **Connect to Porro** to carry on, instead of reporting into nothing. A key in the environment is never deleted.
+- Requires `porro/php-core` 0.3.9.
+
 ## 0.5.0 - 2026-11-16
 
 - **Connect to Porro from the control panel.** On the live site, Site health has a **Connect to Porro** button in place of the `porro/connect` command: it opens Porro to sign in and approve, and the site is connected when the browser comes back. No key to copy. The key is made on the site and kept in its database, encrypted with Craft's security key; `PORRO_KEY` in the environment still wins, so sites connected that way are unchanged. Requires `porro/php-core` 0.3.8, and `php craft migrate/all` (or applying the update in the control panel) for the new `porro_settings` table.

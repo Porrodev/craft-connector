@@ -24,8 +24,25 @@
             <p class="error" role="alert">{{ connectError }}</p>
         {% endif %}
 
+        {% if disconnected %}
+            {# Said once, straight after disconnecting. #}
+            {% set from = disconnected.workspace ?: 'Porro'|t('porro') %}
+            <div class="porro-notice" role="status">
+                {% if disconnected.told %}
+                    <h2>{{ 'Disconnected from {workspace}'|t('porro', {workspace: from}) }}</h2>
+                    <p>{{ 'This site no longer sends reports, and its key has been deleted. {workspace} still has the site in Porro; someone in that workspace can remove it there.'|t('porro', {workspace: from}) }}</p>
+                {% else %}
+                    <h2>{{ 'Disconnected on this site'|t('porro') }}</h2>
+                    <p>{{ 'The key has been deleted and reports have stopped. Porro didn’t answer, so it hasn’t been told: {workspace} will see this site as not reporting, not as disconnected.'|t('porro', {workspace: from}) }}</p>
+                {% endif %}
+            </div>
+        {% endif %}
+
         {% if connect.panel %}
             {% include 'porro/_partials/connect' %}
+        {% elseif connect.state == 'env' %}
+            {# Connected the way it always was: only how to undo it. #}
+            <p class="light smalltext">{{ 'To disconnect, remove PORRO_KEY from the environment and deploy. The control panel can’t change it.'|t('porro') }}</p>
         {% endif %}
 
         <p class="light" role="status">{{ health.summary(counts, checkedAgo) }}</p>
@@ -108,6 +125,25 @@
     .porro-connect-text .porro-connect-state { margin: 0; }
     .porro-health .porro-connect h2 { margin: 4px 0 0; }
     .porro-connect form { flex: none; margin: 0; }
+    .porro-connect-actions { display: flex; align-items: center; gap: 8px; flex: none; }
+    .btn.porro-quiet { background: transparent; color: var(--medium-text-color, #606d7b); }
+    .btn.porro-quiet:hover, .btn.porro-quiet:focus-visible { background: var(--gray-050, #f3f7fc); color: var(--text-color, #3f4d5a); }
+    .porro-notice { padding: 12px 16px; border-radius: var(--large-border-radius, 8px); background: var(--gray-050, #f3f7fc); }
+    .porro-health .porro-notice h2 { margin: 0; font-size: inherit; }
+    .porro-notice p { margin: 4px 0 0; color: var(--medium-text-color, #606d7b); }
+    .porro-health > dialog.porro-confirm { width: min(460px, calc(100vw - 32px)); margin: auto; padding: 0; border: 0; border-radius: var(--large-border-radius, 8px); box-shadow: 0 25px 100px rgba(31, 41, 51, .5); }
+    dialog.porro-confirm::backdrop { background: rgba(123, 135, 147, .35); }
+    dialog.porro-confirm form { margin: 0; }
+    dialog.porro-confirm .body { padding: 24px; }
+    .porro-health dialog.porro-confirm h2 { margin: 0 0 8px; overflow-wrap: anywhere; }
+    dialog.porro-confirm p { margin: 0; }
+    dialog.porro-confirm .footer { display: flex; justify-content: flex-end; gap: 8px; padding: 14px 24px; border-top: 1px solid var(--hairline-color, #e3e5e8); background: var(--gray-050, #f3f7fc); border-radius: 0 0 var(--large-border-radius, 8px) var(--large-border-radius, 8px); }
+    .btn.porro-danger { background-color: var(--error-color, #cf1124); color: #fff; }
+    .btn.porro-danger:hover { background-color: #a50e1d; }
+    .porro-disconnect-rows { margin: 16px 0; padding: 14px 16px; border-radius: var(--medium-border-radius, 5px); background: var(--gray-050, #f3f7fc); }
+    .porro-disconnect-rows dt { font-weight: 600; }
+    .porro-disconnect-rows dd { margin: 2px 0 0; }
+    .porro-disconnect-rows dd + dt { margin-top: 12px; }
     .porro-connect-button { display: inline-flex; align-items: center; gap: 10px; padding: 9px 18px 9px 12px; border: 0; border-radius: 8px; background: #0a0a0a; color: #fff; font-size: 15px; font-weight: 500; line-height: normal; white-space: nowrap; cursor: pointer; }
     .porro-connect-button svg { display: block; width: 24px; height: 24px; flex: none; }
     @media (max-width: 640px) { .porro-health-label { display: none; } }
