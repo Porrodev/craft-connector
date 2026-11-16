@@ -4,6 +4,7 @@ namespace porro\craft\console\controllers;
 
 use craft\console\Controller;
 use porro\craft\Plugin;
+use porro\craft\SiteKeys;
 use yii\console\ExitCode;
 
 /**
@@ -41,7 +42,11 @@ class StatusController extends Controller
         }
 
         $rows['composer.lock'] = (string) ($report['lock']['hash'] ?? 'not found');
-        $rows['Key set'] = Plugin::key() ? 'yes' : 'no';
+        $rows['Key set'] = match (Plugin::keys()->source()) {
+            SiteKeys::ENV => 'yes (PORRO_KEY)',
+            SiteKeys::STORED => 'yes (connected from the control panel)',
+            default => 'no',
+        };
         $rows['Reporting'] = ($reason = Plugin::offReason()) ? "off: {$reason}" : 'on';
 
         $width = max(array_map('strlen', array_keys($rows)));

@@ -20,6 +20,14 @@
 
 {% block content %}
     <div class="porro-health">
+        {% if connectError %}
+            <p class="error" role="alert">{{ connectError }}</p>
+        {% endif %}
+
+        {% if connect.panel %}
+            {% include 'porro/_partials/connect' %}
+        {% endif %}
+
         <p class="light" role="status">{{ health.summary(counts, checkedAgo) }}</p>
 
         {% if failed %}
@@ -62,7 +70,7 @@
             <p>{{ 'Only package names leave the site, to Packagist’s advisories API. Support dates come from endoflife.date.'|t('porro') }}</p>
         </div>
 
-        {% if not connected %}
+        {% if connect.upsell %}
             <hr>
             <h2>{{ 'Watch this site from outside too'|t('porro') }}</h2>
             <p>{{ 'These checks run inside the site. Porro watches it from outside as well, alongside every other site you look after:'|t('porro') }}</p>
@@ -94,5 +102,13 @@
     .porro-health-label { flex: none; font-size: 11px; text-transform: uppercase; letter-spacing: .03em; }
     .porro-health-code { padding: 8px 12px; border-radius: 4px; background: var(--gray-050, #f3f7fc); overflow-x: auto; white-space: pre-wrap; word-break: break-all; }
     .porro-health-notes p { margin: 2px 0; }
+    .porro-connect { display: flex; align-items: center; gap: 12px 32px; flex-wrap: wrap; padding: 16px; border: 1px solid var(--hairline-color, #e3e5e8); border-radius: var(--large-border-radius, 8px); }
+    .porro-connect-text { flex: 1 1 320px; min-width: 0; }
+    .porro-connect-text p { margin: 4px 0 0; }
+    .porro-connect-text .porro-connect-state { margin: 0; }
+    .porro-health .porro-connect h2 { margin: 4px 0 0; }
+    .porro-connect form { flex: none; margin: 0; }
+    .porro-connect-button { display: inline-flex; align-items: center; gap: 10px; padding: 9px 18px 9px 12px; border: 0; border-radius: 8px; background: #0a0a0a; color: #fff; font-size: 15px; font-weight: 500; line-height: normal; white-space: nowrap; cursor: pointer; }
+    .porro-connect-button svg { display: block; width: 24px; height: 24px; flex: none; }
     @media (max-width: 640px) { .porro-health-label { display: none; } }
 {% endcss %}

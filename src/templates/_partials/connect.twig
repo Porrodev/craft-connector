@@ -1,0 +1,37 @@
+{# Connect to Porro: the live site not connected, a copy that isn't production, or connected from here. #}
+<div class="porro-connect">
+    <div class="porro-connect-text">
+        <p class="porro-connect-state light smalltext">{{ connect.state == 'connected' ? 'Connected to Porro'|t('porro') : 'Not connected to Porro'|t('porro') }}</p>
+        {% if connect.state == 'connected' %}
+            <h2>{{ connect.workspace ? 'Connected to {workspace}'|t('porro', {workspace: connect.workspace}) : 'Connected to Porro'|t('porro') }}</h2>
+            <p>{% if connect.approvedAgo %}{{ 'Approved {ago}.'|t('porro', {ago: connect.approvedAgo}) }} {% endif %}{{ 'The first report has been sent, and Porro now checks this site every hour.'|t('porro') }}</p>
+            <p class="light smalltext">{{ 'The key was made on this site and is kept encrypted in its database.'|t('porro') }}</p>
+        {% elseif connect.state == 'development' %}
+            <h2>{{ 'This is a development copy'|t('porro') }}</h2>
+            {% if connect.environment %}
+                <p>{{ 'Its environment is “{environment}”, so it does not connect and sends no reports. Deploy, then connect from the live site’s control panel. The checks below still run here.'|t('porro', {environment: connect.environment}) }}</p>
+                <p class="light smalltext">{{ 'Is this the live site? Its CRAFT_ENVIRONMENT should say production. You can also set a site key.'|t('porro') }}</p>
+            {% else %}
+                <p>{{ 'It has devMode on, so it does not connect and sends no reports. Deploy, then connect from the live site’s control panel. The checks below still run here.'|t('porro') }}</p>
+                <p class="light smalltext">{{ 'Is this the live site? Its devMode should be off. You can also set a site key.'|t('porro') }}</p>
+            {% endif %}
+        {% else %}
+            <h2>{{ 'Have this site checked every hour'|t('porro') }}</h2>
+            <p>{{ 'The checks below ran on this site just now. Connect it to Porro for hourly advisory checks, uptime from outside, and an alert the moment something changes.'|t('porro') }}</p>
+            <p class="light smalltext">{{ 'Opens {host} to sign in and approve. No key to copy.'|t('porro', {host: connect.porroHost}) }}</p>
+        {% endif %}
+    </div>
+    {% if connect.state == 'connected' %}
+        <a href="{{ connect.openUrl }}" target="_blank" rel="noopener" class="btn">{{ 'Open in Porro'|t('porro') }}</a>
+    {% elseif connect.state == 'ready' %}
+        {# The branded button: Porro's own colours in light and dark mode alike. The mark is never recoloured. #}
+        <form method="post" accept-charset="UTF-8">
+            {{ csrfInput() }}
+            {{ actionInput('porro/connect/start') }}
+            <button type="submit" class="porro-connect-button">
+                {{ svg('@porro/craft/icon.svg')|attr({'aria-hidden': 'true'}) }}
+                {{ 'Connect to Porro'|t('porro') }}
+            </button>
+        </form>
+    {% endif %}
+</div>

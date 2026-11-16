@@ -4,6 +4,7 @@ namespace porro\craft\controllers;
 
 use Craft;
 use craft\web\Controller;
+use porro\craft\connect\PanelConnect;
 use porro\craft\Plugin;
 use yii\web\Response;
 
@@ -26,7 +27,14 @@ class SiteHealthController extends Controller
 
     public function actionIndex(): Response
     {
-        return $this->renderTemplate('porro/_index', Plugin::getInstance()->getSiteHealth()->view() + ['selectedSubnavItem' => 'health']);
+        $view = Plugin::getInstance()->getSiteHealth()->view();
+
+        return $this->renderTemplate('porro/_index', $view + [
+            'selectedSubnavItem' => 'health',
+            'connect' => (new PanelConnect)->panel($view['connected'], $view['porroUrl']),
+            // Why "Connect to Porro" didn't finish, when it just didn't.
+            'connectError' => Craft::$app->getSession()->getFlash(ConnectController::ERROR_FLASH, null, true),
+        ]);
     }
 
     /**

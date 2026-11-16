@@ -78,7 +78,7 @@ class BackupReports
 
     private function trigger(): ?string
     {
-        if (! Plugin::enabled() || ! Plugin::key() || ! Craft::$app->getIsInstalled() || ! Craft::$app->getPlugins()->isPluginInstalled('porro')) {
+        if (! Plugin::enabled() || ! Craft::$app->getIsInstalled() || ! Craft::$app->getPlugins()->isPluginInstalled('porro')) {
             return null;
         }
 
@@ -88,6 +88,12 @@ class BackupReports
             if (! $request->getIsCpRequest() || Craft::$app->getUser()->getIsGuest()) {
                 return null;
             }
+        }
+
+        // After the cheap checks: a key made in the control panel is read
+        // from the database, which front-end requests shouldn't pay for.
+        if (! Plugin::key()) {
+            return null;
         }
 
         $reporter = Plugin::getInstance()?->getReporter();
