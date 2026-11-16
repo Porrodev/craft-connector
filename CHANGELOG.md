@@ -1,6 +1,6 @@
 # Release Notes for Porro Site Health
 
-## Unreleased
+## 0.6.0 - 2026-11-16
 
 - **Disconnect from Porro.** A site connected from the control panel now has a **Disconnect** button beside **Open in Porro** on Site health, for admins and users with **Connect the site to Porro**. It asks first, saying what stops and what carries on, then tells Porro and deletes the key from the site's database. The key goes even if Porro can't be reached; Site health then says Porro wasn't told, and the workspace sees the site as not reporting. The checks in the control panel carry on, and the workspace keeps the site and its history until someone removes it in Porro. You can connect again at any time.
 - `php craft porro/disconnect` does the same from the terminal, asking first (`--force` to skip the question, which a script with no terminal needs).
