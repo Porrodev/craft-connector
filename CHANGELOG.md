@@ -1,6 +1,6 @@
 # Release Notes for Porro Site Health
 
-## Unreleased
+## 0.4.0 - 2026-11-16
 
 - **Sign in from Porro**: with Porro's **Sign in to client sites** on, **Sign in to Craft** on the site page in Porro opens the control panel signed in, without a password. Porro posts a one-time, 60-second ticket to `/porro/sign-in`; the site redeems it with Porro using its own site key and signs in the Craft user with the member's email. It never creates users or changes permissions, only signs in active users who can use the control panel, signs in nobody when two accounts share the email, and asks before switching someone already signed in as another user. It skips Craft's two-step verification, relying on Porro's sign-in, and doesn't elevate the session. It's on for the live site and off on staging and local copies unless they set `PORRO_SIGN_IN=true`; `PORRO_SIGN_IN=false` turns it off on the site.
 - `php craft porro/cron` sends a report straight away once the cron line is added or found and the site is connected, so Porro stops saying cron is missing without waiting 15 minutes. With no `PORRO_KEY` it says so and sends nothing.
