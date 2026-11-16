@@ -131,6 +131,11 @@ function connectCalls(string $step): array
  */
 function signInWith(string $site, string $jar, string $username): void
 {
+    // Signed out first: Craft 4 answers a login from someone already signed
+    // in with "you are in", and doesn't switch. Signing out keeps the
+    // session and what's in it.
+    http("{$site}/index.php?p=actions/users/logout", $jar);
+
     $info = json_decode(http("{$site}/index.php?p=actions/users/session-info", $jar)[1], true);
     [$status, $body] = http("{$site}/index.php?p=actions/users/login", $jar, [
         $info['csrfTokenName'] => $info['csrfTokenValue'],
@@ -441,7 +446,8 @@ describe('connecting', function () {
         $get = browse("{$site}/index.php?p=admin/actions/porro/connect/start", $jar);
 
         expect($without['status'])->toBe(400)
-            ->and($get['status'])->toBe(405)
+            // Craft 5 says the method isn't allowed; Craft 4 calls it a bad request.
+            ->and($get['status'])->toBeIn([400, 405])
             ->and(connectCalls('start'))->toBeEmpty();
     });
 
