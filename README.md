@@ -23,7 +23,7 @@ Then open **Porro** in the control panel nav: **Site health**, **Activity** and 
 
 ### Who can see it
 
-Admins, and users or groups with the **Access Porro** permission (Settings → Users). The pages, the widget and **Check again** all check it. Blocking, unblocking and safelisting also need **Block, unblock and safelist IPs**, under Porro in the same list; without it the Activity and Blocking pages are read-only.
+Admins, and users or groups with the **Access Porro** permission (Settings → Users). The pages, the widget and **Check again** all check it. Blocking, unblocking and safelisting also need **Block, unblock and safelist IPs**, under Porro in the same list; without it the Activity and Blocking pages are read-only. **Connect the site to Porro**, in the same place, adds the **Connect to Porro** button on Site health.
 
 ## What it checks
 
@@ -81,6 +81,8 @@ The Porro Site Health page then shows the site's open findings in Porro alongsid
 ```
 */15 * * * * cd /path/to/site && php craft porro/report --scheduled > /dev/null 2>&1
 ```
+
+Or connect from the control panel, with no key to copy. On the live site, **Porro → Site health** has a **Connect to Porro** button for admins and users with **Connect the site to Porro**. It opens Porro, where you sign in and approve, and brings you back connected. The key is made on the site and kept in its database, encrypted with Craft's security key (run `php craft migrate/all` first, for the `porro_settings` table). `PORRO_KEY` in the environment wins when it's set. A copy whose `CRAFT_ENVIRONMENT` isn't production, or with devMode on, has no button and says why. Connecting this way doesn't touch the crontab: run `php craft porro/cron` on the server afterwards.
 
 Use `--cron` to add it without asking (handy in provisioning scripts) or `--no-cron` to leave the crontab alone. Skipped it, or connected from another machine? Run `php craft porro/cron` on the server; it needs no key, and once the site is connected it sends a report straight away. Add `php craft porro/report --deploy` to your deploy script so Porro hears about deploys straight away.
 
@@ -231,7 +233,7 @@ Content, entries, assets, users, settings values or secrets. Run `php craft porr
 | `porro/connect <key>` | Saves the key, sends the first report and sets up cron (`--cron`, `--no-cron`, `--url`) |
 | `porro/cron` | Adds the cron line on its own, no key needed. Sends a report straight away once connected |
 | `porro/report` | Sends a report now (`--packages` forces the package list, `--deploy` for deploy scripts) |
-| `porro/status` | Shows what the next report contains (`--json` for the raw report) |
+| `porro/status` | Shows what the next report contains, and where the site key came from (`--json` for the raw report) |
 | `porro/blocklist` | Tidies the blocklist and, in nginx mode, writes the deny file. Cron runs it every minute in nginx mode |
 | `porro/cloudflare [connect\|sync\|status\|disconnect]` | Blocks at Cloudflare's edge |
 
@@ -259,7 +261,7 @@ Craft's own update check is Craft's, as usual. Requests go through Craft's Guzzl
 
 | Env | Default | |
 |---|---|---|
-| `PORRO_KEY` | | The site key |
+| `PORRO_KEY` | | The site key. Wins over one made by **Connect to Porro** in the control panel |
 | `PORRO_ENABLED` | unset | `true` or `false` to force reporting on or off |
 | `PORRO_SIGN_IN` | on in production | Let Porro members [sign in from Porro](#sign-in-from-porro). `false` turns it off here; `true` turns it on for a staging or local copy |
 | `PORRO_ACTIVITY` | production only | Record suspicious activity |

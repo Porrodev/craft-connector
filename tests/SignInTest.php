@@ -138,21 +138,6 @@ function publicKey(string $token): string
     return sodium_crypto_sign_publickey(sodium_crypto_sign_seed_keypair(base64_decode(strtr($m[1], '-_', '+/'))));
 }
 
-/**
- * Runs $test with the site's .env changed, then puts it back.
- */
-function withEnvFile(callable $change, callable $test): mixed
-{
-    $env = (string) file_get_contents(craftPath().'/.env');
-    file_put_contents(craftPath().'/.env', $change($env));
-
-    try {
-        return $test();
-    } finally {
-        file_put_contents(craftPath().'/.env', $env);
-    }
-}
-
 it('signs the member in to the control panel and sends them to the dashboard', function () {
     porroAnswers(200, ['ok' => true, 'email' => 'editor@example.com', 'name' => 'Ed Itor']);
     $site = proxiedSite();
@@ -170,6 +155,29 @@ it('signs the member in to the control panel and sends them to the dashboard', f
     $dashboard = fetchPage("{$site}/index.php?p=admin/dashboard", $ip, jar: $jar);
 
     expect($dashboard['status'])->toBe(200)->and($dashboard['body'])->toContain('Dashboard');
+});
+
+it('signs in with a key made by Connect to Porro in the control panel', function () {
+    porroAnswers(200, ['ok' => true, 'email' => 'editor@example.com', 'name' => 'Ed Itor']);
+    $site = proxiedSite();
+    $ip = freshIp();
+    $jar = jar();
+
+    // No key in the environment: only the stored one can sign the redeem.
+    $response = withEnvFile(fn ($env) => envWith($env, ['PORRO_KEY' => null]), function () use ($site, $ip, $jar) {
+        connectedFromPanel();
+
+        try {
+            return signInFromPorro($site, $ip, $jar);
+        } finally {
+            connectStore('forget');
+        }
+    });
+
+    expect($response['status'])->toBe(302, $response['body'])
+        ->and(signedInAs($site, $ip, $jar))->toBe('editor@example.com')
+        ->and(redeems())->toHaveCount(1)
+        ->and(redeems()[0]['headers']['X-Porro-Site'])->toBe('01JABCDEFGHJKMNPQRSTVWXYZ0');
 });
 
 it('starts without a session, and hands the ticket on from this site’s own page', function () {

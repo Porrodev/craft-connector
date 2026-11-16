@@ -11,6 +11,7 @@ use Porro\Core\Report;
 use Porro\Core\ReportThrottle;
 use Porro\Core\Result;
 use Porro\Core\SiteKey;
+use SensitiveParameter;
 use yii\base\Component;
 
 class Reporter extends Component
@@ -42,7 +43,7 @@ class Reporter extends Component
      *
      * @throws InvalidArgumentException when the key isn't a Porro site key
      */
-    public function send(?string $key = null, ?string $url = null, bool $withPackages = false, string $trigger = Report::TRIGGER_MANUAL, array $health = [], int $timeout = 15, int $retries = 2): Result
+    public function send(#[SensitiveParameter] ?string $key = null, ?string $url = null, bool $withPackages = false, string $trigger = Report::TRIGGER_MANUAL, array $health = [], int $timeout = 15, int $retries = 2): Result
     {
         $client = new Client(SiteKey::parse((string) ($key ?? Plugin::key())), $url ?? Plugin::url(), retries: $retries, timeout: $timeout);
 

@@ -15,6 +15,7 @@ use craft\web\twig\variables\CraftVariable;
 use craft\web\UrlManager;
 use porro\craft\activity\Activity;
 use porro\craft\activity\WatchRequests;
+use porro\craft\connect\PanelConnect;
 use porro\craft\services\SiteHealth;
 use porro\craft\variables\PorroVariable;
 use porro\craft\widgets\SiteHealthWidget;
@@ -27,6 +28,7 @@ use yii\base\Event;
  * a backup, the control panel) and never accepts commands.
  *
  * @property-read Activity $activity
+ * @property-read SiteKeys $keys
  * @property-read Reporter $reporter
  * @property-read SiteHealth $siteHealth
  */
@@ -41,8 +43,13 @@ class Plugin extends BasePlugin
     // Blocking, unblocking and safelisting. Admins always have it.
     public const MANAGE_PERMISSION = 'porro-manageBlocking';
 
-    // 1.1.0: the blocklist and safelist tables.
-    public string $schemaVersion = '1.2.0';
+    // "Connect to Porro" on Site health. Admins always have it; seeing
+    // the page isn't enough.
+    public const CONNECT_PERMISSION = 'porro-connectSite';
+
+    // 1.1.0: the blocklist and safelist tables. 1.3.0: porro_settings,
+    // for a site key made in the control panel.
+    public string $schemaVersion = '1.3.0';
 
     public bool $hasCpSection = true;
 
@@ -51,6 +58,7 @@ class Plugin extends BasePlugin
         return [
             'components' => [
                 'activity' => Activity::class,
+                'keys' => SiteKeys::class,
                 'reporter' => Reporter::class,
                 'siteHealth' => SiteHealth::class,
             ],
@@ -73,6 +81,8 @@ class Plugin extends BasePlugin
 
         Event::on(UrlManager::class, UrlManager::EVENT_REGISTER_CP_URL_RULES, function (RegisterUrlRulesEvent $event) {
             $event->rules['porro'] = 'porro/site-health/index';
+            // Where the browser comes back from Porro with its approval.
+            $event->rules['GET '.PanelConnect::RETURN_PATH] = 'porro/connect/return';
             $event->rules['porro/activity'] = 'porro/activity/index';
             $event->rules['porro/activity/<ip:[0-9a-fA-F:.]+>'] = 'porro/activity/ip';
             $event->rules['porro/blocking'] = 'porro/blocking/index';
@@ -102,6 +112,7 @@ class Plugin extends BasePlugin
                 'heading' => Craft::t('porro', 'Porro'),
                 'permissions' => [
                     self::MANAGE_PERMISSION => ['label' => Craft::t('porro', 'Block, unblock and safelist IPs')],
+                    self::CONNECT_PERMISSION => ['label' => Craft::t('porro', 'Connect the site to Porro')],
                 ],
             ];
         });
@@ -143,6 +154,16 @@ class Plugin extends BasePlugin
         return $user->getIsAdmin() || $user->checkPermission(self::MANAGE_PERMISSION);
     }
 
+    /**
+     * Whether the signed-in user may connect the site to Porro.
+     */
+    public static function canConnect(): bool
+    {
+        $user = Craft::$app->getUser();
+
+        return $user->getIsAdmin() || $user->checkPermission(self::CONNECT_PERMISSION);
+    }
+
     public function getSiteHealth(): SiteHealth
     {
         /** @var SiteHealth */
@@ -155,11 +176,23 @@ class Plugin extends BasePlugin
         return $this->get('reporter');
     }
 
+    /**
+     * Where the site key comes from: PORRO_KEY, or the one made by
+     * "Connect to Porro" in the control panel.
+     */
+    public static function keys(): SiteKeys
+    {
+        /** @var SiteKeys */
+        return self::getInstance()?->get('keys') ?? new SiteKeys;
+    }
+
+    /**
+     * The site key token, wherever it's kept. Read each time it's asked
+     * for, and never held on to.
+     */
     public static function key(): ?string
     {
-        $key = App::env('PORRO_KEY');
-
-        return is_string($key) && $key !== '' ? $key : null;
+        return self::keys()->token();
     }
 
     public static function url(): string
@@ -211,7 +244,7 @@ class Plugin extends BasePlugin
 
         $environment = self::environment();
 
-        if ($environment !== null && ! in_array(strtolower($environment), ['production', 'prod', 'live'], true)) {
+        if ($environment !== null && ! self::isProductionName($environment)) {
             return "not production (CRAFT_ENVIRONMENT={$environment}). Set PORRO_ENABLED=true to report from here";
         }
 
@@ -220,5 +253,23 @@ class Plugin extends BasePlugin
         }
 
         return null;
+    }
+
+    /**
+     * Whether this is the live site rather than a local or staging copy:
+     * CRAFT_ENVIRONMENT is production (or unset) and devMode is off.
+     * Whatever PORRO_ENABLED says.
+     */
+    public static function production(): bool
+    {
+        $environment = self::environment();
+
+        return ($environment === null || self::isProductionName($environment))
+            && ! Craft::$app->getConfig()->getGeneral()->devMode;
+    }
+
+    public static function isProductionName(string $environment): bool
+    {
+        return in_array(strtolower($environment), ['production', 'prod', 'live'], true);
     }
 }

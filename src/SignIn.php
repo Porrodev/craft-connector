@@ -67,10 +67,7 @@ class SignIn
      */
     private static function live(): bool
     {
-        $environment = Plugin::environment();
-
-        return ($environment === null || in_array(strtolower($environment), ['production', 'prod', 'live'], true))
-            && ! Craft::$app->getConfig()->getGeneral()->devMode;
+        return Plugin::production();
     }
 
     /**

@@ -1,5 +1,12 @@
 # Release Notes for Porro Site Health
 
+## Unreleased
+
+- **Connect to Porro from the control panel.** On the live site, Site health has a **Connect to Porro** button in place of the `porro/connect` command: it opens Porro to sign in and approve, and the site is connected when the browser comes back. No key to copy. The key is made on the site and kept in its database, encrypted with Craft's security key; `PORRO_KEY` in the environment still wins, so sites connected that way are unchanged. Requires `porro/php-core` 0.3.8, and `php craft migrate/all` (or applying the update in the control panel) for the new `porro_settings` table.
+- A new **Connect the site to Porro** permission, under Porro with **Block, unblock and safelist IPs**, decides who sees the button. Admins always have it. Without it, Site health shows the command as before.
+- A copy whose `CRAFT_ENVIRONMENT` isn't production, or with devMode on, shows why it doesn't connect instead of the button. Once connected from the control panel, Site health says which workspace the site is connected to.
+- `php craft porro/status` says where the key came from: `PORRO_KEY`, or connected from the control panel.
+
 ## 0.4.0 - 2026-11-16
 
 - **Sign in from Porro**: with Porro's **Sign in to client sites** on, **Sign in to Craft** on the site page in Porro opens the control panel signed in, without a password. Porro posts a one-time, 60-second ticket to `/porro/sign-in`; the site redeems it with Porro using its own site key and signs in the Craft user with the member's email. It never creates users or changes permissions, only signs in active users who can use the control panel, signs in nobody when two accounts share the email, and asks before switching someone already signed in as another user. It skips Craft's two-step verification, relying on Porro's sign-in, and doesn't elevate the session. It's on for the live site and off on staging and local copies unless they set `PORRO_SIGN_IN=true`; `PORRO_SIGN_IN=false` turns it off on the site.

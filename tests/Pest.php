@@ -274,3 +274,61 @@ function findingsKey(string $url, string $key): string
 
     return 'porro:health:porro:'.$siteKey->siteId.':'.substr(hash('sha256', rtrim($url, '/')."\n".$siteKey->id()), 0, 16);
 }
+
+/**
+ * Runs $test with the site's .env changed, then puts it back.
+ */
+function withEnvFile(callable $change, callable $test): mixed
+{
+    $env = (string) file_get_contents(craftPath().'/.env');
+    file_put_contents(craftPath().'/.env', $change($env));
+
+    try {
+        return $test();
+    } finally {
+        file_put_contents(craftPath().'/.env', $env);
+    }
+}
+
+/**
+ * An .env with these lines set, or taken out when the value is null.
+ *
+ * @param  array<string, string|null>  $set
+ */
+function envWith(string $env, array $set): string
+{
+    foreach ($set as $name => $value) {
+        $env = (string) preg_replace('/^'.preg_quote($name, '/').'=.*\n?/m', '', $env);
+
+        if ($value !== null) {
+            $env = rtrim($env)."\n{$name}={$value}\n";
+        }
+    }
+
+    return $env;
+}
+
+/**
+ * What "Connect to Porro" keeps in the Craft install: reads or changes it
+ * with tests/support/connect.php, and returns what that printed.
+ */
+function connectStore(string $action, string ...$args): mixed
+{
+    $command = implode(' ', array_map('escapeshellarg', [PHP_BINARY, __DIR__.'/support/connect.php', $action, ...$args]));
+    exec($command.' 2>&1', $output, $code);
+
+    expect($code)->toBe(0, implode("\n", $output));
+
+    return json_decode(implode("\n", $output), true);
+}
+
+/**
+ * A site key kept as a finished "Connect to Porro" leaves it, which the
+ * stand-in Porro then knows as the site's.
+ */
+function connectedFromPanel(string $workspace = 'Marlowe Studio', string $host = 'harbour-arts.org'): void
+{
+    $key = connectStore('store', $workspace, $host);
+
+    file_put_contents(porro()['captures'].'/connect-public-key', $key['public_key']);
+}
