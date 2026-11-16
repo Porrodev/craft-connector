@@ -1,6 +1,6 @@
 # Release Notes for Porro Site Health
 
-## Unreleased
+## 0.5.0 - 2026-11-16
 
 - **Connect to Porro from the control panel.** On the live site, Site health has a **Connect to Porro** button in place of the `porro/connect` command: it opens Porro to sign in and approve, and the site is connected when the browser comes back. No key to copy. The key is made on the site and kept in its database, encrypted with Craft's security key; `PORRO_KEY` in the environment still wins, so sites connected that way are unchanged. Requires `porro/php-core` 0.3.8, and `php craft migrate/all` (or applying the update in the control panel) for the new `porro_settings` table.
 - A new **Connect the site to Porro** permission, under Porro with **Block, unblock and safelist IPs**, decides who sees the button. Admins always have it. Without it, Site health shows the command as before.
